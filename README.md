@@ -9,7 +9,7 @@ Currently supported platforms include AWS, GCP, and remotely via SSH.
 
 doodad is designed to be as minimally invasive as possible - most code can be run without any modifications.
 
-See the [quickstart](https://github.com/justinjfu/doodad/wiki/Quickstart) guide for a quick tutorial.
+See the [quickstart](https://github.com/justinjfu/doodad/wiki/Quickstart) guide for a quick tutorial, and the rest of the [wiki](https://github.com/rail-berkeley/doodad/wiki) for additional documentation and setup instructions.
 
 ## Setup
 - Install Python 2.7+ or Python 3.6+. doodad currently supports both.
