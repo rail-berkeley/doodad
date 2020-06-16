@@ -1,15 +1,14 @@
 # doodad
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Build Status](https://travis-ci.com/justinjfu/doodad.svg?branch=master)](https://travis-ci.com/justinjfu/doodad)
-[![codecov](https://codecov.io/gh/justinjfu/doodad/branch/master/graph/badge.svg)](https://codecov.io/gh/justinjfu/doodad)
+[![Build Status](https://travis-ci.com/justinjfu/doodad.svg?branch=master)](https://travis-ci.com/rail-berkeley/doodad)
 
 A library for packaging dependencies and launching scripts (with a focus on python) on different platforms using Docker.
 Currently supported platforms include AWS, GCP, and remotely via SSH.
 
 doodad is designed to be as minimally invasive as possible - most code can be run without any modifications.
 
-See the [quickstart](https://github.com/justinjfu/doodad/wiki/Quickstart) guide for a quick tutorial, and the rest of the [wiki](https://github.com/rail-berkeley/doodad/wiki) for additional documentation and setup instructions.
+See the [quickstart](https://github.com/rail-berkeley/doodad/wiki/Quickstart) guide for a quick tutorial, and the rest of the [wiki](https://github.com/rail-berkeley/doodad/wiki) for additional documentation and setup instructions.
 
 ## Setup
 - Install Python 2.7+ or Python 3.6+. doodad currently supports both.
