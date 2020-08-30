@@ -2,6 +2,12 @@ import os
 import azure
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 
+from doodad.utils import hash_file, REPO_DIR, safe_import
+#storage = safe_import.try_import('google.cloud.storage')
+
+AZURE_STARTUP_SCRIPT_PATH = os.path.join(REPO_DIR, "scripts/azure/azure_startup_script.sh")
+AZURE_SHUTDOWN_SCRIPT_PATH = os.path.join(REPO_DIR, "scripts/azure/azure_shutdown_script.sh")
+
 
 def upload_file_to_azure_storage(
     file_name,
