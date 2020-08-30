@@ -16,7 +16,7 @@ googleapiclient = safe_import.try_import('googleapiclient')
 googleapiclient.discovery = safe_import.try_import('googleapiclient.discovery')
 boto3 = safe_import.try_import('boto3')
 botocore = safe_import.try_import('botocore')
-from doodad.apis import gcp_util, aws_util
+from doodad.apis import gcp_util, aws_util, azure_util
 
 
 class LaunchMode(object):
@@ -545,3 +545,230 @@ class GCPMode(LaunchMode):
         )
         if not dry:
             return compute_instances.execute()
+
+
+class AzureMode(LaunchMode):
+    """
+    Azure Launch Mode.
+    """
+    def __init__(self, 
+                 azure_subscription_id,
+                 azure_resource_group,
+                 azure_container,
+                 azure_client_id,
+                 azure_authentication_key,
+                 azure_tenant_id,
+                 log_path,
+                 terminate_on_end=True,
+                 preemptible=True,
+                 region='westus',
+                 instance_type='Standard_DS1',
+                 azure_label='azure_doodad',
+                 data_sync_interval=15,
+                 **kwargs):
+        super(AzureMode, self).__init__(**kwargs)
+        self.azure_subscription_id = azure_subscription_id
+        self.azure_resource_group = azure_resource_group
+        self.azure_container = azure_container
+        self.azure_client_id = azure_client_id
+        self.azure_authentication_key = azure_authentication_key
+        self.azure_tenant_id = azure_tenant_id
+        self.log_path = log_path
+        self.terminate_on_end = terminate_on_end
+        self.preemptible = preemptible
+        self.region = region
+        self.instance_type = instance_type
+        self.azure_label = azure_label
+        self.data_sync_interval = data_sync_interval
+        self.compute = googleapiclient.discovery.build('compute', 'v1')
+
+        self.connection_str = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
+
+        if self.use_gpu:
+            raise NotImplementedError()
+
+    def __str__(self):
+        return 'Azure-%s-%s' % (self.gcp_project, self.instance_type)
+
+    def print_launch_message(self):
+        print('Go to https://portal.azure.com/ to monitor jobs.')
+
+    def run_script(self, script, dry=False, return_output=False, verbose=False):
+        if return_output:
+            raise ValueError("Cannot return output for Azure scripts.")
+
+        # Upload script to Azure
+        cmd_split = shlex.split(script)
+        script_fname = cmd_split[0]
+        if len(cmd_split) > 1:
+            script_args = ' '.join(cmd_split[1:])
+        else:
+            script_args = ''
+        remote_script = azure_util.upload_file_to_azure_storage(filename=script_fname,
+                connection_str=self.connection_str,
+                dry=dry)
+
+        exp_name = "{}-{}".format(self.azure_label, gcp_util.make_timekey())
+        exp_prefix = self.azure_label
+
+        with open(azure_util.AZURE_STARTUP_SCRIPT_PATH) as f:
+            start_script = f.read()
+        with open(azure_util.AZURE_SHUTDOWN_SCRIPT_PATH) as f:
+            stop_script = f.read()
+
+        metadata = {
+            'shell_interpreter': self.shell_interpreter,
+            'azure_container_path': self.log_path,
+            'remote_script_path': remote_script,
+            'container_name': self.azure_container,
+            'terminate': json.dumps(self.terminate_on_end),
+            'use_gpu': self.use_gpu,
+            'script_args': script_args,
+            'startup-script': start_script,
+            'shutdown-script': stop_script,
+            'data_sync_interval': self.data_sync_interval
+        }
+        unique_name= "doodad" + str(uuid.uuid4()).replace("-", "")
+        instance_info = self.create_instance(metadata, unique_name, exp_name, exp_prefix, dry=dry)
+        if verbose:
+            print('Launched instance %s' % unique_name)
+            print(instance_info)
+        return metadata
+
+    def create_instance(self, metadata, name, exp_name="", exp_prefix="", dry=False):
+        from azure.common.credentials import ServicePrincipalCredentials
+        from azure.mgmt.resource import ResourceManagementClient
+        from azure.mgmt.compute import ComputeManagementClient
+        from azure.mgmt.network import NetworkManagementClient
+        from azure.mgmt.compute.models import DiskCreateOption
+
+        credentials = ServicePrincipalCredentials(
+            client_id = self.azure_client_id,
+            secret = self.azure_authentication_key,
+            tenant = self.azure_tenant_id,
+        )
+        resource_group_client = ResourceManagementClient(
+            credentials,
+            self.subscription_id
+        )
+        network_client = NetworkManagementClient(
+            credentials,
+            self.subscription_id
+        )
+        compute_client = ComputeManagementClient(
+            credentials,
+            self.subscription_id
+        )
+        resource_group_params = { 'location':self.region }
+        resource_group_result = resource_group_client.resource_groups.create_or_update(
+            self.azure_resource_group, 
+            resource_group_params
+        )
+
+        public_ip_addess_params = {
+            'location': self.region,
+            'public_ip_allocation_method': 'Dynamic'
+        }
+        ip_result = network_client.public_ip_addresses.create_or_update(
+            self.azure_resource_group,
+            'myIPAddress',
+            public_ip_addess_params
+        )
+
+        vnet_params = {
+            'location': self.region,
+            'address_space': {
+                'address_prefixes': ['10.0.0.0/16']
+            }
+        }
+        virtual_network_result = network_client.virtual_networks.create_or_update(
+            self.azure_resource_group,
+            'myVNet',
+            vnet_params
+        )
+        subnet_params = {
+            'address_prefix': '10.0.0.0/24'
+        }
+        subnet_result = network_client.subnets.create_or_update(
+            self.azure_resource_group,
+            'myVNet',
+            'mySubnet',
+            subnet_params
+        )
+
+        subnet_info = network_client.subnets.get(
+            self.azure_resource_group, 
+            'myVNet', 
+            'mySubnet'
+        )
+        publicIPAddress = network_client.public_ip_addresses.get(
+            self.azure_resource_group,
+            'myIPAddress'
+        )
+        nic_params = {
+            'location': self.region,
+            'ip_configurations': [{
+                'name': 'myIPConfig',
+                'public_ip_address': publicIPAddress,
+                'subnet': {
+                    'id': subnet_info.id
+                }
+            }]
+        }
+        nic_result = network_client.network_interfaces.create_or_update(
+            self.azure_resource_group,
+            'myNic',
+            nic_params
+        )
+
+        # todo: network stuff
+
+        nic = network_client.network_interfaces.get(
+            self.azure_resource_group, 
+            'myNic'
+        )
+        """
+        avset = compute_client.availability_sets.get(
+            self.azure_resource_group,
+            'myAVSet'
+        )
+        """
+
+        vm_name = 'doodad_'+str(uuid.uuid4())
+        vm_parameters = {
+            'location': self.region,
+            'os_profile': {
+                'computer_name': vm_name,
+                'admin_username': 'azureuser',
+                'admin_password': 'Azure12345678'
+            },
+            'hardware_profile': {
+                'vm_size': self.instance_type
+            },
+            'storage_profile': {
+                'image_reference': {
+                    'publisher': 'Canonical',
+                    'offer': 'UbuntuServer',
+                    'sku': '16.04.0-LTS',
+                    'version': 'latest'
+                }
+            },
+            'network_profile': {
+                'network_interfaces': [{
+                    'id': nic.id
+                }]
+            },
+            """
+            'availability_set': {
+                'id': avset.id
+            }
+            """
+        }
+        creation_result = compute_client.virtual_machines.create_or_update(
+            resource_group_name=self.azure_resource_group, 
+            vm_name=vm_name, 
+            parameters=vm_parameters
+        )
+
+        return creation_result.result()
+
