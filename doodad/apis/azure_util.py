@@ -10,7 +10,7 @@ AZURE_SHUTDOWN_SCRIPT_PATH = os.path.join(REPO_DIR, "scripts/azure/azure_shutdow
 
 
 def upload_file_to_azure_storage(
-    file_name,
+    filename,
     container_name,
     #storage_account,
     connection_str,
@@ -19,7 +19,7 @@ def upload_file_to_azure_storage(
     check_exists=True
 ):
     if remote_filename is None:
-        remote_filename = os.path.basename(file_name)
+        remote_filename = os.path.basename(filename)
     remote_path = 'doodad/mount/' + remote_filename
 
     if not dry:
@@ -34,7 +34,7 @@ def upload_file_to_azure_storage(
             if exists:
                 print("{remote_path} already exists".format(remote_path=remote_path))
                 return remote_path
-        with open(file_name, "rb") as data:
+        with open(filename, "rb") as data:
             blob_client.upload_blob(data)
     return remote_path
 
@@ -42,7 +42,7 @@ def upload_file_to_azure_storage(
 if __name__ == '__main__':
     import os
     cstr = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
-    rmt_path = upload_file_to_azure_storage(file_name='hello.txt', 
+    rmt_path = upload_file_to_azure_storage(filename='hello.txt', 
                                  container_name='ddtest',
                                  connection_str=cstr,
                                  )

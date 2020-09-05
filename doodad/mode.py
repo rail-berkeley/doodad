@@ -554,35 +554,38 @@ class AzureMode(LaunchMode):
     def __init__(self, 
                  azure_subscription_id,
                  azure_resource_group,
-                 azure_container,
+                 azure_storage_container,
+                 azure_storage_connection_str,
                  azure_client_id,
                  azure_authentication_key,
                  azure_tenant_id,
+                 azure_network_interface,
                  log_path,
                  terminate_on_end=True,
                  preemptible=True,
-                 region='westus',
+                 region='eastus',
                  instance_type='Standard_DS1',
-                 azure_label='azure_doodad',
+                 exp_label='doodad_exp',
                  data_sync_interval=15,
                  **kwargs):
         super(AzureMode, self).__init__(**kwargs)
-        self.azure_subscription_id = azure_subscription_id
+        self.subscription_id = azure_subscription_id
         self.azure_resource_group = azure_resource_group
-        self.azure_container = azure_container
+        self.azure_container = azure_storage_container
         self.azure_client_id = azure_client_id
         self.azure_authentication_key = azure_authentication_key
         self.azure_tenant_id = azure_tenant_id
+        self.network_interface = azure_network_interface
         self.log_path = log_path
         self.terminate_on_end = terminate_on_end
         self.preemptible = preemptible
         self.region = region
         self.instance_type = instance_type
-        self.azure_label = azure_label
+        self.azure_label = exp_label
         self.data_sync_interval = data_sync_interval
         self.compute = googleapiclient.discovery.build('compute', 'v1')
 
-        self.connection_str = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
+        self.connection_str = azure_storage_connection_str
 
         if self.use_gpu:
             raise NotImplementedError()
@@ -605,6 +608,7 @@ class AzureMode(LaunchMode):
         else:
             script_args = ''
         remote_script = azure_util.upload_file_to_azure_storage(filename=script_fname,
+                container_name=self.azure_container,
                 connection_str=self.connection_str,
                 dry=dry)
 
@@ -647,10 +651,6 @@ class AzureMode(LaunchMode):
             secret = self.azure_authentication_key,
             tenant = self.azure_tenant_id,
         )
-        resource_group_client = ResourceManagementClient(
-            credentials,
-            self.subscription_id
-        )
         network_client = NetworkManagementClient(
             credentials,
             self.subscription_id
@@ -659,73 +659,10 @@ class AzureMode(LaunchMode):
             credentials,
             self.subscription_id
         )
-        resource_group_params = { 'location':self.region }
-        resource_group_result = resource_group_client.resource_groups.create_or_update(
-            self.azure_resource_group, 
-            resource_group_params
-        )
-
-        public_ip_addess_params = {
-            'location': self.region,
-            'public_ip_allocation_method': 'Dynamic'
-        }
-        ip_result = network_client.public_ip_addresses.create_or_update(
-            self.azure_resource_group,
-            'myIPAddress',
-            public_ip_addess_params
-        )
-
-        vnet_params = {
-            'location': self.region,
-            'address_space': {
-                'address_prefixes': ['10.0.0.0/16']
-            }
-        }
-        virtual_network_result = network_client.virtual_networks.create_or_update(
-            self.azure_resource_group,
-            'myVNet',
-            vnet_params
-        )
-        subnet_params = {
-            'address_prefix': '10.0.0.0/24'
-        }
-        subnet_result = network_client.subnets.create_or_update(
-            self.azure_resource_group,
-            'myVNet',
-            'mySubnet',
-            subnet_params
-        )
-
-        subnet_info = network_client.subnets.get(
-            self.azure_resource_group, 
-            'myVNet', 
-            'mySubnet'
-        )
-        publicIPAddress = network_client.public_ip_addresses.get(
-            self.azure_resource_group,
-            'myIPAddress'
-        )
-        nic_params = {
-            'location': self.region,
-            'ip_configurations': [{
-                'name': 'myIPConfig',
-                'public_ip_address': publicIPAddress,
-                'subnet': {
-                    'id': subnet_info.id
-                }
-            }]
-        }
-        nic_result = network_client.network_interfaces.create_or_update(
-            self.azure_resource_group,
-            'myNic',
-            nic_params
-        )
-
-        # todo: network stuff
 
         nic = network_client.network_interfaces.get(
             self.azure_resource_group, 
-            'myNic'
+            self.network_interface,
         )
         """
         avset = compute_client.availability_sets.get(
@@ -734,7 +671,8 @@ class AzureMode(LaunchMode):
         )
         """
 
-        vm_name = 'doodad_'+str(uuid.uuid4())
+        vm_name = ('doodad'+str(uuid.uuid4()).replace('-', ''))[:15]
+        print('name:', vm_name, len(vm_name))
         vm_parameters = {
             'location': self.region,
             'os_profile': {
@@ -747,22 +685,21 @@ class AzureMode(LaunchMode):
             },
             'storage_profile': {
                 'image_reference': {
-                    'publisher': 'Canonical',
-                    'offer': 'UbuntuServer',
-                    'sku': '16.04.0-LTS',
+                    'publisher': 'MicrosoftWindowsServer',
+                    'offer': 'WindowsServer',
+                    'sku': '2012-R2-Datacenter',
                     'version': 'latest'
+                    #'publisher': 'Canonical',
+                    #'offer': 'UbuntuServer',
+                    #'sku': '16.04.0-LTS',
+                    #'version': 'latest'
                 }
             },
             'network_profile': {
                 'network_interfaces': [{
                     'id': nic.id
                 }]
-            },
-            """
-            'availability_set': {
-                'id': avset.id
             }
-            """
         }
         creation_result = compute_client.virtual_machines.create_or_update(
             resource_group_name=self.azure_resource_group, 
