@@ -5,3 +5,9 @@ cloudpickle
 awscli
 google-api-python-client
 google-cloud-storage
+azure-mgmt-compute
+azure-mgmt-storage
+azure-mgmt-resource
+azure-mgmt-network
+azure-storage-blob
+azure-cli-core

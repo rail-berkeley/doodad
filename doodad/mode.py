@@ -25,7 +25,7 @@ class LaunchMode(object):
 
     Args:
         shell_interpreter (str): Interpreter command for script. Default 'sh'
-        async_run (bool): If True, 
+        async_run (bool): If True,
     """
     def __init__(self, shell_interpreter='sh', async_run=False, use_gpu=False):
         self.shell_interpreter = shell_interpreter
@@ -79,12 +79,12 @@ class SSHMode(LaunchMode):
         self.ssh_cred = ssh_credentials
 
     def _get_run_command(self, script_filename):
-        return self.ssh_cred.get_ssh_script_cmd(script_filename, 
+        return self.ssh_cred.get_ssh_script_cmd(script_filename,
                                                 shell_interpreter=self.shell_interpreter)
 
 
 class EC2Mode(LaunchMode):
-    def __init__(self, 
+    def __init__(self,
                  ec2_credentials,
                  s3_bucket,
                  s3_log_path,
@@ -120,7 +120,7 @@ class EC2Mode(LaunchMode):
         self.security_group_ids = security_group_ids
         self.swap_size = swap_size
         self.sync_interval = 15
-    
+
     def dedent(self, s):
         lines = [l.strip() for l in s.split('\n')]
         return '\n'.join(lines)
@@ -190,7 +190,7 @@ class EC2Mode(LaunchMode):
             script_s3_filename=script_s3_filename
         ))
 
-        # 2) Sync data 
+        # 2) Sync data
         # In theory the ec2_local_dir could be some random directory,
         # but we make it the same as the mount directory for
         # convenience.
@@ -399,7 +399,7 @@ class GCPMode(LaunchMode):
         gpu_model (str): GCP GPU model. See https://cloud.google.com/compute/docs/gpus.
         data_sync_interval (int): Number of seconds before each sync on mounts.
     """
-    def __init__(self, 
+    def __init__(self,
                  gcp_project,
                  gcp_bucket,
                  gcp_log_path,
@@ -551,7 +551,7 @@ class AzureMode(LaunchMode):
     """
     Azure Launch Mode.
     """
-    def __init__(self, 
+    def __init__(self,
                  azure_subscription_id,
                  azure_resource_group,
                  azure_storage_container,
@@ -591,7 +591,7 @@ class AzureMode(LaunchMode):
             raise NotImplementedError()
 
     def __str__(self):
-        return 'Azure-%s-%s' % (self.gcp_project, self.instance_type)
+        return 'Azure-%s-%s' % (self.azure_resource_group, self.instance_type)
 
     def print_launch_message(self):
         print('Go to https://portal.azure.com/ to monitor jobs.')
@@ -632,7 +632,7 @@ class AzureMode(LaunchMode):
             'shutdown-script': stop_script,
             'data_sync_interval': self.data_sync_interval
         }
-        unique_name= "doodad" + str(uuid.uuid4()).replace("-", "")
+        unique_name = "doodad" + str(uuid.uuid4()).replace("-", "")
         instance_info = self.create_instance(metadata, unique_name, exp_name, exp_prefix, dry=dry)
         if verbose:
             print('Launched instance %s' % unique_name)
@@ -647,9 +647,9 @@ class AzureMode(LaunchMode):
         from azure.mgmt.compute.models import DiskCreateOption
 
         credentials = ServicePrincipalCredentials(
-            client_id = self.azure_client_id,
-            secret = self.azure_authentication_key,
-            tenant = self.azure_tenant_id,
+            client_id=self.azure_client_id,
+            secret=self.azure_authentication_key,
+            tenant=self.azure_tenant_id,
         )
         network_client = NetworkManagementClient(
             credentials,
@@ -659,9 +659,21 @@ class AzureMode(LaunchMode):
             credentials,
             self.subscription_id
         )
+        # IP_NAME = "python-example-ip"
+        # poller = network_client.public_ip_addresses.create_or_update(
+        #     self.azure_resource_group,
+        #     IP_NAME,
+        #     {
+        #         "location": self.region,
+        #         "sku": {"name": "Standard"},
+        #         "public_ip_allocation_method": "Static",
+        #         "public_ip_address_version": "IPV4"
+        #     }
+        # )
+        # ip_address_result = poller.result()
 
         nic = network_client.network_interfaces.get(
-            self.azure_resource_group, 
+            self.azure_resource_group,
             self.network_interface,
         )
         """
@@ -685,14 +697,14 @@ class AzureMode(LaunchMode):
             },
             'storage_profile': {
                 'image_reference': {
-                    'publisher': 'MicrosoftWindowsServer',
-                    'offer': 'WindowsServer',
-                    'sku': '2012-R2-Datacenter',
+                    # 'publisher': 'MicrosoftWindowsServer',
+                    # 'offer': 'WindowsServer',
+                    # 'sku': '2012-R2-Datacenter',
+                    # 'version': 'latest'
+                    'publisher': 'Canonical',
+                    'offer': 'UbuntuServer',
+                    'sku': '16.04.0-LTS',
                     'version': 'latest'
-                    #'publisher': 'Canonical',
-                    #'offer': 'UbuntuServer',
-                    #'sku': '16.04.0-LTS',
-                    #'version': 'latest'
                 }
             },
             'network_profile': {
@@ -702,9 +714,11 @@ class AzureMode(LaunchMode):
             }
         }
         creation_result = compute_client.virtual_machines.create_or_update(
-            resource_group_name=self.azure_resource_group, 
-            vm_name=vm_name, 
-            parameters=vm_parameters
+            resource_group_name=self.azure_resource_group,
+            vm_name=vm_name,
+            parameters=vm_parameters,
+            custom_data=azure_util.AZURE_STARTUP_SCRIPT_PATH,
+            generate_ssh_keys=True,
         )
 
         return creation_result.result()

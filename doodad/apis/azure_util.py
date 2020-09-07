@@ -7,6 +7,7 @@ from doodad.utils import hash_file, REPO_DIR, safe_import
 
 AZURE_STARTUP_SCRIPT_PATH = os.path.join(REPO_DIR, "scripts/azure/azure_startup_script.sh")
 AZURE_SHUTDOWN_SCRIPT_PATH = os.path.join(REPO_DIR, "scripts/azure/azure_shutdown_script.sh")
+AZURE_CLOUD_INIT_PATH = os.path.join(REPO_DIR, "scripts/azure/cloud-init.txt")
 
 
 def upload_file_to_azure_storage(
@@ -42,7 +43,7 @@ def upload_file_to_azure_storage(
 if __name__ == '__main__':
     import os
     cstr = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
-    rmt_path = upload_file_to_azure_storage(filename='hello.txt', 
+    rmt_path = upload_file_to_azure_storage(filename='hello.txt',
                                  container_name='ddtest',
                                  connection_str=cstr,
                                  )
