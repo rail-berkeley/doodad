@@ -547,6 +547,9 @@ class GCPMode(LaunchMode):
             return compute_instances.execute()
 
 
+def b64e(s):
+    return base64.b64encode(s.encode()).decode()
+
 class AzureMode(LaunchMode):
     """
     Azure Launch Mode.
@@ -651,6 +654,10 @@ class AzureMode(LaunchMode):
             secret=self.azure_authentication_key,
             tenant=self.azure_tenant_id,
         )
+        resource_group_client = ResourceManagementClient(
+            credentials,
+            self.subscription_id
+        )
         network_client = NetworkManagementClient(
             credentials,
             self.subscription_id
@@ -659,35 +666,61 @@ class AzureMode(LaunchMode):
             credentials,
             self.subscription_id
         )
-        # IP_NAME = "python-example-ip"
-        # poller = network_client.public_ip_addresses.create_or_update(
-        #     self.azure_resource_group,
-        #     IP_NAME,
-        #     {
-        #         "location": self.region,
-        #         "sku": {"name": "Standard"},
-        #         "public_ip_allocation_method": "Static",
-        #         "public_ip_address_version": "IPV4"
-        #     }
-        # )
-        # ip_address_result = poller.result()
-
-        nic = network_client.network_interfaces.get(
+        resource_group_params = { 'location':self.region }
+        resource_group_client.resource_groups.create_or_update(
             self.azure_resource_group,
-            self.network_interface,
+            resource_group_params
         )
-        """
-        avset = compute_client.availability_sets.get(
-            self.azure_resource_group,
-            'myAVSet'
-        )
-        """
-        # from azure.mgmt.compute import models
 
-        # __import__('ipdb').set_trace()
-        # key = models.SshPublicKey(path='~/.ssh/id_rsa.pub')
-        # ssh_config = models.SshConfiguration(public_keys=[key])
-        # linux_config = models.LinuxConfiguration(ssh=ssh_config)
+        public_ip_addess_params = {
+            'location': self.region,
+            'public_ip_allocation_method': 'Dynamic'
+        }
+        poller = network_client.public_ip_addresses.create_or_update(
+            self.azure_resource_group,
+            'myIPAddress',
+            public_ip_addess_params
+        )
+        publicIPAddress = poller.result()
+
+        vnet_params = {
+            'location': self.region,
+            'address_space': {
+                'address_prefixes': ['10.0.0.0/16']
+            }
+        }
+        network_client.virtual_networks.create_or_update(
+            self.azure_resource_group,
+            'myVNet',
+            vnet_params
+        )
+        subnet_params = {
+            'address_prefix': '10.0.0.0/24'
+        }
+        poller = network_client.subnets.create_or_update(
+            self.azure_resource_group,
+            'myVNet',
+            'mySubnet',
+            subnet_params
+        )
+        subnet_info = poller.result()
+        nic_params = {
+            'location': self.region,
+            'ip_configurations': [{
+                'name': 'myIPConfig',
+                'public_ip_address': publicIPAddress,
+                'subnet': {
+                    'id': subnet_info.id
+                }
+            }]
+        }
+        poller = network_client.network_interfaces.create_or_update(
+            self.azure_resource_group,
+            'myNic',
+            nic_params
+        )
+        nic = poller.result()
+
         with open(azure_util.AZURE_STARTUP_SCRIPT_PATH, mode='rb') as f:
             startup_script_bytes = f.read()
         custom_data = base64.b64encode(startup_script_bytes).decode('utf-8')
@@ -701,22 +734,12 @@ class AzureMode(LaunchMode):
                 'admin_username': 'doodad',
                 'admin_password': 'Azure1',
                 'custom_data': custom_data,
-                # 'linux_configuration': linux_config,
-                # 'linux_configuration': {
-                    # 'ssh_configuration': {
-                        # 'public_keys' ['~/.ssh/id_rsa.pub'],
-                    # },
-                # },
             },
             'hardware_profile': {
                 'vm_size': self.instance_type
             },
             'storage_profile': {
                 'image_reference': {
-                    # 'publisher': 'MicrosoftWindowsServer',
-                    # 'offer': 'WindowsServer',
-                    # 'sku': '2012-R2-Datacenter',
-                    # 'version': 'latest'
                     'publisher': 'Canonical',
                     'offer': 'UbuntuServer',
                     'sku': '16.04.0-LTS',
@@ -727,7 +750,7 @@ class AzureMode(LaunchMode):
                 'network_interfaces': [{
                     'id': nic.id
                 }]
-            }
+            },
         }
         creation_result = compute_client.virtual_machines.create_or_update(
             resource_group_name=self.azure_resource_group,

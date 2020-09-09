@@ -1,5 +1,6 @@
 import os
 import doodad
+import uuid
 
 SUBSC_ID = 'dc2a7d68-6f03-4c8b-9fab-291d5cbedd37'
 CLIENT_ID = 'ec0d30fe-4b51-439a-a7af-4259cc2ae1b4'
@@ -10,7 +11,7 @@ CONN_STR = r'DefaultEndpointsProtocol=https;AccountName=railuseaststorage;Accoun
 def run():
     launcher = doodad.AzureMode(
          azure_subscription_id=SUBSC_ID,
-         azure_resource_group='rail_useast',
+         azure_resource_group='dev-vitchyr-' + uuid.uuid4().hex[:6],
          azure_storage_container='doodad-test',
          azure_storage_connection_str=CONN_STR,
          azure_client_id=CLIENT_ID,
