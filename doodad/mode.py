@@ -682,6 +682,15 @@ class AzureMode(LaunchMode):
             'myAVSet'
         )
         """
+        # from azure.mgmt.compute import models
+
+        # __import__('ipdb').set_trace()
+        # key = models.SshPublicKey(path='~/.ssh/id_rsa.pub')
+        # ssh_config = models.SshConfiguration(public_keys=[key])
+        # linux_config = models.LinuxConfiguration(ssh=ssh_config)
+        with open(azure_util.AZURE_STARTUP_SCRIPT_PATH, mode='rb') as f:
+            startup_script_bytes = f.read()
+        custom_data = base64.b64encode(startup_script_bytes).decode('utf-8')
 
         vm_name = ('doodad'+str(uuid.uuid4()).replace('-', ''))[:15]
         print('name:', vm_name, len(vm_name))
@@ -689,8 +698,15 @@ class AzureMode(LaunchMode):
             'location': self.region,
             'os_profile': {
                 'computer_name': vm_name,
-                'admin_username': 'azureuser',
-                'admin_password': 'Azure12345678'
+                'admin_username': 'doodad',
+                'admin_password': 'Azure1',
+                'custom_data': custom_data,
+                # 'linux_configuration': linux_config,
+                # 'linux_configuration': {
+                    # 'ssh_configuration': {
+                        # 'public_keys' ['~/.ssh/id_rsa.pub'],
+                    # },
+                # },
             },
             'hardware_profile': {
                 'vm_size': self.instance_type
@@ -717,8 +733,6 @@ class AzureMode(LaunchMode):
             resource_group_name=self.azure_resource_group,
             vm_name=vm_name,
             parameters=vm_parameters,
-            custom_data=azure_util.AZURE_STARTUP_SCRIPT_PATH,
-            generate_ssh_keys=True,
         )
 
         return creation_result.result()
