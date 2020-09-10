@@ -13,7 +13,7 @@ import tempfile
 from contextlib import contextmanager
 
 from doodad.apis import aws_util
-from doodad import utils 
+from doodad import utils
 
 
 class Mount(object):
@@ -128,7 +128,7 @@ class MountGit(Mount):
     def dar_build_archive(self, deps_dir):
         dep_dir = os.path.join(deps_dir, 'git', self.name)
         os.makedirs(dep_dir)
-        
+
         extract_file = os.path.join(dep_dir, 'extract.sh')
         with open(extract_file, 'w') as f:
             mount_point = os.path.dirname(self.mount_point)
@@ -156,12 +156,12 @@ class MountGit(Mount):
 
 
 class MountS3(Mount):
-    def __init__(self, 
-                s3_path, 
-                sync_interval=15, 
+    def __init__(self,
+                s3_path,
+                sync_interval=15,
                 output=True,
                 dry=False,
-                include_types=('*.txt', '*.csv', '*.json', '*.gz', '*.tar', '*.log', '*.pkl'), 
+                include_types=('*.txt', '*.csv', '*.json', '*.gz', '*.tar', '*.log', '*.pkl'),
                 **kwargs):
         super(MountS3, self).__init__(output=output, **kwargs)
         # load from config
@@ -181,16 +181,16 @@ class MountS3(Mount):
         assert output
 
     def dar_build_archive(self, deps_dir):
-        return 
+        return
 
     def dar_extract_command(self):
         return 'echo helloMountS3'
 
 
 class MountGCP(Mount):
-    def __init__(self, 
+    def __init__(self,
                 gcp_path=None,
-                sync_interval=15, 
+                sync_interval=15,
                 output=True,
                 dry=False,
                 exclude_regex='*.tmp',
@@ -221,8 +221,42 @@ class MountGCP(Mount):
         assert output
 
     def dar_build_archive(self, deps_dir):
-        return 
+        return
 
     def dar_extract_command(self):
         return 'echo helloMountGCP'
+
+
+class MountAzure(Mount):
+    def __init__(self,
+                 azure_path=None,
+                 output=True,
+                 dry=False,
+                 exclude_regex='*.tmp',
+                 **kwargs):
+        """
+
+        Args:
+            zone (str): Zone name. i.e. 'us-west1-a'
+        """
+        super(MountAzure, self).__init__(output=output, **kwargs)
+        # load from config
+        if azure_path.startswith('/'):
+            raise NotImplementedError('Local dir cannot be absolute')
+        else:
+            # We store everything into a fixed dir /doodad on the remote machine
+            # so MountAzure knows to simply sync /doodad
+            self.sync_dir = os.path.join('/doodad', azure_path)
+        self.output = output
+        self.sync_on_terminate = True
+        self.exclude_string = '"'+exclude_regex+'"'
+        self._name = self.sync_dir.replace('/', '_')
+        self.dry = dry
+        assert output
+
+    def dar_build_archive(self, deps_dir):
+        return
+
+    def dar_extract_command(self):
+        return 'echo helloMountAzure'
 

@@ -16,7 +16,7 @@ googleapiclient = safe_import.try_import('googleapiclient')
 googleapiclient.discovery = safe_import.try_import('googleapiclient.discovery')
 boto3 = safe_import.try_import('boto3')
 botocore = safe_import.try_import('botocore')
-from doodad.apis import gcp_util, aws_util
+from doodad.apis import gcp_util, aws_util, azure_util
 
 
 class LaunchMode(object):
@@ -25,7 +25,7 @@ class LaunchMode(object):
 
     Args:
         shell_interpreter (str): Interpreter command for script. Default 'sh'
-        async_run (bool): If True, 
+        async_run (bool): If True,
     """
     def __init__(self, shell_interpreter='sh', async_run=False, use_gpu=False):
         self.shell_interpreter = shell_interpreter
@@ -79,12 +79,12 @@ class SSHMode(LaunchMode):
         self.ssh_cred = ssh_credentials
 
     def _get_run_command(self, script_filename):
-        return self.ssh_cred.get_ssh_script_cmd(script_filename, 
+        return self.ssh_cred.get_ssh_script_cmd(script_filename,
                                                 shell_interpreter=self.shell_interpreter)
 
 
 class EC2Mode(LaunchMode):
-    def __init__(self, 
+    def __init__(self,
                  ec2_credentials,
                  s3_bucket,
                  s3_log_path,
@@ -120,7 +120,7 @@ class EC2Mode(LaunchMode):
         self.security_group_ids = security_group_ids
         self.swap_size = swap_size
         self.sync_interval = 15
-    
+
     def dedent(self, s):
         lines = [l.strip() for l in s.split('\n')]
         return '\n'.join(lines)
@@ -190,7 +190,7 @@ class EC2Mode(LaunchMode):
             script_s3_filename=script_s3_filename
         ))
 
-        # 2) Sync data 
+        # 2) Sync data
         # In theory the ec2_local_dir could be some random directory,
         # but we make it the same as the mount directory for
         # convenience.
@@ -399,7 +399,7 @@ class GCPMode(LaunchMode):
         gpu_model (str): GCP GPU model. See https://cloud.google.com/compute/docs/gpus.
         data_sync_interval (int): Number of seconds before each sync on mounts.
     """
-    def __init__(self, 
+    def __init__(self,
                  gcp_project,
                  gcp_bucket,
                  gcp_log_path,
@@ -545,3 +545,269 @@ class GCPMode(LaunchMode):
         )
         if not dry:
             return compute_instances.execute()
+
+
+class AzureMode(LaunchMode):
+    """
+    Azure Launch Mode.
+    """
+    def __init__(self,
+                 azure_subscription_id,
+                 azure_resource_group,
+                 azure_storage_container,
+                 azure_storage_connection_str,
+                 azure_client_id,
+                 azure_authentication_key,
+                 azure_tenant_id,
+                 log_path,
+                 terminate_on_end=True,
+                 preemptible=True,
+                 region='eastus',
+                 instance_type='Standard_DS1',
+                 exp_label='doodad_exp',
+                 data_sync_interval=15,
+                 **kwargs):
+        super(AzureMode, self).__init__(**kwargs)
+        self.subscription_id = azure_subscription_id
+        self.azure_resource_group = azure_resource_group
+        self.azure_container = azure_storage_container
+        self.azure_client_id = azure_client_id
+        self.azure_authentication_key = azure_authentication_key
+        self.azure_tenant_id = azure_tenant_id
+        self.log_path = log_path
+        self.terminate_on_end = terminate_on_end
+        self.preemptible = preemptible
+        self.region = region
+        self.instance_type = instance_type
+        self.azure_label = exp_label
+        self.data_sync_interval = data_sync_interval
+        self.compute = googleapiclient.discovery.build('compute', 'v1')
+
+        self.connection_str = azure_storage_connection_str
+        self.connection_info = dict([k.split('=', 1) for k in self.connection_str.split(';')])
+
+        if self.use_gpu:
+            raise NotImplementedError()
+
+    def __str__(self):
+        return 'Azure-%s-%s' % (self.azure_resource_group, self.instance_type)
+
+    def print_launch_message(self):
+        print('Go to https://portal.azure.com/ to monitor jobs.')
+
+    def run_script(self, script, dry=False, return_output=False, verbose=False):
+        if return_output:
+            raise ValueError("Cannot return output for Azure scripts.")
+
+        # Upload script to Azure
+        cmd_split = shlex.split(script)
+        script_fname = cmd_split[0]
+        if len(cmd_split) > 1:
+            script_args = ' '.join(cmd_split[1:])
+        else:
+            script_args = ''
+        remote_script = azure_util.upload_file_to_azure_storage(filename=script_fname,
+                container_name=self.azure_container,
+                connection_str=self.connection_str,
+                dry=dry)
+
+        exp_name = "{}-{}".format(self.azure_label, gcp_util.make_timekey())
+        exp_prefix = self.azure_label
+
+        with open(azure_util.AZURE_STARTUP_SCRIPT_PATH) as f:
+            start_script = f.read()
+        with open(azure_util.AZURE_SHUTDOWN_SCRIPT_PATH) as f:
+            stop_script = f.read()
+
+        metadata = {
+            'shell_interpreter': self.shell_interpreter,
+            'azure_container_path': self.log_path,
+            'remote_script_path': remote_script,
+            'container_name': self.azure_container,
+            'terminate': json.dumps(self.terminate_on_end),
+            'use_gpu': self.use_gpu,
+            'script_args': script_args,
+            'startup-script': start_script,
+            'shutdown-script': stop_script,
+            'data_sync_interval': self.data_sync_interval
+        }
+        unique_name = "doodad" + str(uuid.uuid4()).replace("-", "")
+        instance_info = self.create_instance(metadata, unique_name, exp_name, exp_prefix, dry=dry)
+        if verbose:
+            print('Launched instance %s' % unique_name)
+            print(instance_info)
+        return metadata
+
+    def create_instance(self, metadata, name, exp_name="", exp_prefix="", dry=False):
+        from azure.common.credentials import ServicePrincipalCredentials
+        from azure.mgmt.resource import ResourceManagementClient
+        from azure.mgmt.compute import ComputeManagementClient
+        from azure.mgmt.network import NetworkManagementClient
+        from azure.mgmt.compute.models import DiskCreateOption
+        from azure.mgmt.authorization import AuthorizationManagementClient
+
+        credentials = ServicePrincipalCredentials(
+            client_id=self.azure_client_id,
+            secret=self.azure_authentication_key,
+            tenant=self.azure_tenant_id,
+        )
+        resource_group_client = ResourceManagementClient(
+            credentials,
+            self.subscription_id
+        )
+        network_client = NetworkManagementClient(
+            credentials,
+            self.subscription_id
+        )
+        compute_client = ComputeManagementClient(
+            credentials,
+            self.subscription_id
+        )
+        authorization_client = AuthorizationManagementClient(
+            credentials,
+            self.subscription_id,
+        )
+        resource_group_params = {
+            'location': self.region,
+        }
+        resource_group = resource_group_client.resource_groups.create_or_update(
+            self.azure_resource_group,
+            resource_group_params
+        )
+        vm_name = 'doodad-vm'
+        print('name:', vm_name)
+        print('resource_group.id:', resource_group.id)
+
+        public_ip_addess_params = {
+            'location': self.region,
+            'public_ip_allocation_method': 'Dynamic'
+        }
+        poller = network_client.public_ip_addresses.create_or_update(
+            self.azure_resource_group,
+            'myIPAddress',
+            public_ip_addess_params
+        )
+        publicIPAddress = poller.result()
+
+        vnet_params = {
+            'location': self.region,
+            'address_space': {
+                'address_prefixes': ['10.0.0.0/16']
+            }
+        }
+        network_client.virtual_networks.create_or_update(
+            self.azure_resource_group,
+            'myVNet',
+            vnet_params
+        )
+        subnet_params = {
+            'address_prefix': '10.0.0.0/24'
+        }
+        poller = network_client.subnets.create_or_update(
+            self.azure_resource_group,
+            'myVNet',
+            'mySubnet',
+            subnet_params
+        )
+        subnet_info = poller.result()
+        nic_params = {
+            'location': self.region,
+            'ip_configurations': [{
+                'name': 'myIPConfig',
+                'public_ip_address': publicIPAddress,
+                'subnet': {
+                    'id': subnet_info.id
+                }
+            }]
+        }
+        poller = network_client.network_interfaces.create_or_update(
+            self.azure_resource_group,
+            'myNic',
+            nic_params
+        )
+        nic = poller.result()
+
+        with open(azure_util.AZURE_STARTUP_SCRIPT_PATH, mode='r') as f:
+            startup_script_str = f.read()
+        for old, new in [
+            ('DOODAD_LOG_PATH', self.log_path),
+            ('DOODAD_STORAGE_ACCOUNT_NAME', self.connection_info['AccountName']),
+            ('DOODAD_STORAGE_ACCOUNT_KEY', self.connection_info['AccountKey']),
+            ('DOODAD_CONTAINER_NAME', self.azure_container),
+            ('DOODAD_REMOTE_SCRIPT_PATH', metadata['remote_script_path']),
+            ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
+        ]:
+            startup_script_str = startup_script_str.replace(old, new)
+        custom_data = b64e(startup_script_str)
+
+        # vm_name = ('doodad'+str(uuid.uuid4()).replace('-', ''))[:15]
+        # this authenthication code is based on
+        # https://docs.microsoft.com/en-us/samples/azure-samples/compute-python-msi-vm/compute-python-msi-vm/
+        from azure.mgmt.compute import models
+        params_identity = {
+            'type': models.ResourceIdentityType.system_assigned,
+        }
+        vm_parameters = {
+            'location': self.region,
+            'os_profile': {
+                'computer_name': vm_name,
+                'admin_username': 'doodad',
+                'admin_password': 'Azure1',
+                'custom_data': custom_data,
+            },
+            'hardware_profile': {
+                'vm_size': self.instance_type
+            },
+            'storage_profile': {
+                'image_reference': {
+                    'publisher': 'Canonical',
+                    'offer': 'UbuntuServer',
+                    'sku': '16.04.0-LTS',
+                    'version': 'latest'
+                }
+            },
+            'network_profile': {
+                'network_interfaces': [{
+                    'id': nic.id
+                }]
+            },
+            'tags': {
+                'log_path': self.log_path,
+            },
+            'identity': params_identity,
+        }
+        vm_poller = compute_client.virtual_machines.create_or_update(
+            resource_group_name=self.azure_resource_group,
+            vm_name=vm_name,
+            parameters=vm_parameters,
+        )
+
+        vm_result = vm_poller.result()
+
+        # We need to ensure that the VM has permissions to delete its own
+        # resource group. We'll assign the built-in "Contributor" role and limit
+        # its scope to this resource group.
+        role_name = 'Contributor'
+        roles = list(authorization_client.role_definitions.list(
+            resource_group.id,
+            filter="roleName eq '{}'".format(role_name)
+        ))
+        assert len(roles) == 1
+        contributor_role = roles[0]
+
+        # Add RG scope to the MSI tokenddd
+        for msi_identity in [vm_result.identity.principal_id]:
+            authorization_client.role_assignments.create(
+                resource_group.id,
+                uuid.uuid4(),  # Role assignment random name
+                {
+                    'role_definition_id': contributor_role.id,
+                    'principal_id': msi_identity
+                }
+            )
+        return resource_group.id
+
+
+def b64e(s):
+    return base64.b64encode(s.encode()).decode()
+
