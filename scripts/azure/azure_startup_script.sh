@@ -13,6 +13,8 @@ query_metadata() {
     account_name=DOODAD_STORAGE_ACCOUNT_NAME
     account_key=DOODAD_STORAGE_ACCOUNT_KEY
     container_name=DOODAD_CONTAINER_NAME
+    remote_script_path=DOODAD_REMOTE_SCRIPT_PATH
+    shell_interpreter=DOODAD_SHELL_INTERPRETER
 
     # Install docker following instructions from
     # https://docs.docker.com/engine/install/ubuntu/
@@ -78,7 +80,11 @@ query_metadata() {
 
     # TODO: pull docker image
     # TODO: run script
-    echo 'hello world' > /doodad/foo.txt
+    #echo 'hello world' > /doodad/foo.txt
+    #echo ls -l /doodad_tmp > /doodad/dd_tmp_dir.txt
+    cp /doodad_tmp/$remote_script_path /tmp/remote_script.sh
+    #gsutil cp gs://$bucket_name/$remote_script_path /tmp/remote_script.sh
+    $shell_interpreter /tmp/remote_script.sh $script_args
 
     # This logs in using the system-assigned identity. The system-assigned
     # identity is the "virtual machine identity." So, rather than needing to

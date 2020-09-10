@@ -733,6 +733,8 @@ class AzureMode(LaunchMode):
             ('DOODAD_STORAGE_ACCOUNT_NAME', 'doodadtestvitchyr'),
             ('DOODAD_STORAGE_ACCOUNT_KEY','xbC4EYVFQMjfc1XTB1SmAPxlQKuj4r4s3h47yq1LG6qzl1R6SGxr2He66qlSvBvVYc+gFOBVcZ6REPHHmZRzqg=='),
             ('DOODAD_CONTAINER_NAME', self.azure_container),
+            ('DOODAD_REMOTE_SCRIPT_PATH', metadata['remote_script_path']),
+            ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
         ]:
             startup_script_str = startup_script_str.replace(old, new)
         custom_data = b64e(startup_script_str)
