@@ -53,7 +53,7 @@ query_metadata() {
 
     chmod 600 /home/doodad/fuse_connection.cfg
 
-    mkdir -p /doodad_tmp/$doodad_log_path
+    mkdir -p /doodad_tmp
     sudo blobfuse /doodad_tmp \
         --tmp-path=/mnt/resource/blobfusetmp \
         --config-file=/home/doodad/fuse_connection.cfg \
@@ -61,17 +61,19 @@ query_metadata() {
         -o entry_timeout=240 \
         -o negative_timeout=120
 
+    mkdir -p /doodad_tmp/$doodad_log_path
     ln -s /doodad_tmp/$doodad_log_path /doodad
 
     echo 'hello world' > /doodad/foo.txt
 
-    # shutdown script
     # This logs in using the system-assigned identity. The system-assigned
     # identity is the "virtual machine identity." So, rather than needing to
     # pass credentials to the VM, the VM can automatically authenticate by
     # virtue of being a microsoft-provided system.
     # https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli?view=azure-cli-latest#sign-in-with-a-managed-identity
     az login --identity
+
+    # Delete everything!
     az group delete -y --no-wait --name $resource_group
 
 
