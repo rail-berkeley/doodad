@@ -78,12 +78,8 @@ query_metadata() {
     fi
     ln -s /doodad_tmp/$doodad_log_path /doodad
 
-    # TODO: pull docker image
-    # TODO: run script
-    #echo 'hello world' > /doodad/foo.txt
-    #echo ls -l /doodad_tmp > /doodad/dd_tmp_dir.txt
+    # Run the script
     cp /doodad_tmp/$remote_script_path /tmp/remote_script.sh
-    #gsutil cp gs://$bucket_name/$remote_script_path /tmp/remote_script.sh
     $shell_interpreter /tmp/remote_script.sh $script_args
 
     # This logs in using the system-assigned identity. The system-assigned

@@ -584,6 +584,7 @@ class AzureMode(LaunchMode):
         self.compute = googleapiclient.discovery.build('compute', 'v1')
 
         self.connection_str = azure_storage_connection_str
+        self.connection_info = dict([k.split('=', 1) for k in self.connection_str.split(';')])
 
         if self.use_gpu:
             raise NotImplementedError()
@@ -730,8 +731,8 @@ class AzureMode(LaunchMode):
             startup_script_str = f.read()
         for old, new in [
             ('DOODAD_LOG_PATH', self.log_path),
-            ('DOODAD_STORAGE_ACCOUNT_NAME', 'doodadtestvitchyr'),
-            ('DOODAD_STORAGE_ACCOUNT_KEY','xbC4EYVFQMjfc1XTB1SmAPxlQKuj4r4s3h47yq1LG6qzl1R6SGxr2He66qlSvBvVYc+gFOBVcZ6REPHHmZRzqg=='),
+            ('DOODAD_STORAGE_ACCOUNT_NAME', self.connection_info['AccountName']),
+            ('DOODAD_STORAGE_ACCOUNT_KEY', self.connection_info['AccountKey']),
             ('DOODAD_CONTAINER_NAME', self.azure_container),
             ('DOODAD_REMOTE_SCRIPT_PATH', metadata['remote_script_path']),
             ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
