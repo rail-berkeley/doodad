@@ -547,9 +547,6 @@ class GCPMode(LaunchMode):
             return compute_instances.execute()
 
 
-def b64e(s):
-    return base64.b64encode(s.encode()).decode()
-
 class AzureMode(LaunchMode):
     """
     Azure Launch Mode.
@@ -721,9 +718,17 @@ class AzureMode(LaunchMode):
         )
         nic = poller.result()
 
-        with open(azure_util.AZURE_STARTUP_SCRIPT_PATH, mode='rb') as f:
-            startup_script_bytes = f.read()
-        custom_data = base64.b64encode(startup_script_bytes).decode('utf-8')
+        with open(azure_util.AZURE_STARTUP_SCRIPT_PATH, mode='r') as f:
+            startup_script_str = f.read()
+        for old, new in [
+            ('DOODAD_LOG_PATH', self.log_path),
+            ('DOODAD_STORAGE_ACCOUNT_NAME', 'doodadtestvitchyr'),
+            ('DOODAD_STORAGE_ACCOUNT_KEY','xbC4EYVFQMjfc1XTB1SmAPxlQKuj4r4s3h47yq1LG6qzl1R6SGxr2He66qlSvBvVYc+gFOBVcZ6REPHHmZRzqg=='),
+            ('DOODAD_CONTAINER_NAME', self.azure_container),
+        ]:
+            startup_script_str = startup_script_str.replace(old, new)
+        import ipdb; ipdb.set_trace()
+        custom_data = b64e(startup_script_str)
 
         vm_name = ('doodad'+str(uuid.uuid4()).replace('-', ''))[:15]
         print('name:', vm_name, len(vm_name))
@@ -751,6 +756,10 @@ class AzureMode(LaunchMode):
                     'id': nic.id
                 }]
             },
+            'tags': {
+                'accountName': 'doodadtestvitchyr',
+                'containerName': 'doodad-bucket',
+            }
         }
         creation_result = compute_client.virtual_machines.create_or_update(
             resource_group_name=self.azure_resource_group,
@@ -759,4 +768,8 @@ class AzureMode(LaunchMode):
         )
 
         return creation_result.result()
+
+
+def b64e(s):
+    return base64.b64encode(s.encode()).decode()
 

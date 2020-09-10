@@ -8,15 +8,10 @@ mkdir -p /home/doodad
         curl -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2020-06-01" | jq ".compute.$attribute_name"
     }
     name=$(query_metadata name)
-    remote_script_path=DOODADREMOTESCRIPTPATH
-
-    echo "name:" $name
-    echo "remote_script": $remote_script_path
-    echo "name:" $name >> /tmp/test
-    echo "remote_script": $remote_script_path >> /tmp/test
-    echo 'hello world' >> /tmp/test
-    echo 'hello from startup script'
-    touch hello
+    doodadLogPath=DOODAD_LOG_PATH
+    accountName=DOODAD_STORAGE_ACCOUNT_NAME
+    accountKey=DOODAD_STORAGE_ACCOUNT_KEY
+    containerName=DOODAD_CONTAINER_NAME
 
     # Install docker following instructions from
     # https://docs.docker.com/engine/install/ubuntu/
@@ -52,18 +47,22 @@ mkdir -p /home/doodad
     sudo chown doodad /mnt/resource/blobfusetmp
 
     echo "accountName $accountName" >> /home/doodad/fuse_connection.cfg
-    echo "accountKey $storageaccesskey" >> /home/doodad/fuse_connection.cfg
-    echo "containerName $mycontainer" >> /home/doodad/fuse_connection.cfg
+    echo "accountKey $accountKey" >> /home/doodad/fuse_connection.cfg
+    echo "containerName $containerName" >> /home/doodad/fuse_connection.cfg
 
     chmod 600 /home/doodad/fuse_connection.cfg
 
-    mkdir -p /doodad
-    sudo blobfuse /doodad \
+    mkdir -p /doodad_tmp
+    sudo blobfuse /doodad_tmp \
         --tmp-path=/mnt/resource/blobfusetmp \
         --config-file=/home/doodad/fuse_connection.cfg \
         -o attr_timeout=240 \
         -o entry_timeout=240 \
         -o negative_timeout=120
 
+    mkdir -p /doodad_tmp/$doodadLogPath
+    ln -s /doodad_tmp/$doodadLogPath /doodad
+
+    echo 'hello world' > /doodad/foo.txt
 
 } >> /home/doodad/user_data.log 2>&1

@@ -18,13 +18,13 @@ def run():
          azure_authentication_key=SECRET,
          azure_tenant_id=TENANT_ID,
          azure_network_interface='rail_useast_nic',
-         log_path='foobarbaz',
+         log_path='sac-09-09-2020',
          region='eastus',
          instance_type='Standard_DS1_v2',
     )
     mounts = [
         doodad.MountAzure(
-            'vitchyr-test',
+            'data',
         )
     ]
     doodad.run_command(
