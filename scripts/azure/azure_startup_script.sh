@@ -1,17 +1,18 @@
 #!/bin/sh
 mkdir -p /home/doodad
+query_metadata() {
+    attribute_name=$1
+    curl -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2020-06-01" | jq -r ".compute.$attribute_name"
+}
 {
     sudo apt-get update
     sudo apt-get install -y jq git unzip
-    query_metadata() {
-        attribute_name=$1
-        curl -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2020-06-01" | jq ".compute.$attribute_name"
-    }
     name=$(query_metadata name)
-    doodadLogPath=DOODAD_LOG_PATH
-    accountName=DOODAD_STORAGE_ACCOUNT_NAME
-    accountKey=DOODAD_STORAGE_ACCOUNT_KEY
-    containerName=DOODAD_CONTAINER_NAME
+    resource_group=$(query_metadata resourceGroupName)
+    doodad_log_path=DOODAD_LOG_PATH
+    account_name=DOODAD_STORAGE_ACCOUNT_NAME
+    account_key=DOODAD_STORAGE_ACCOUNT_KEY
+    container_name=DOODAD_CONTAINER_NAME
 
     # Install docker following instructions from
     # https://docs.docker.com/engine/install/ubuntu/
@@ -46,13 +47,13 @@ mkdir -p /home/doodad
     sudo mkdir /mnt/resource/blobfusetmp -p
     sudo chown doodad /mnt/resource/blobfusetmp
 
-    echo "accountName $accountName" >> /home/doodad/fuse_connection.cfg
-    echo "accountKey $accountKey" >> /home/doodad/fuse_connection.cfg
-    echo "containerName $containerName" >> /home/doodad/fuse_connection.cfg
+    echo "accountName $account_name" >> /home/doodad/fuse_connection.cfg
+    echo "accountKey $account_key" >> /home/doodad/fuse_connection.cfg
+    echo "containerName $container_name" >> /home/doodad/fuse_connection.cfg
 
     chmod 600 /home/doodad/fuse_connection.cfg
 
-    mkdir -p /doodad_tmp
+    mkdir -p /doodad_tmp/$doodad_log_path
     sudo blobfuse /doodad_tmp \
         --tmp-path=/mnt/resource/blobfusetmp \
         --config-file=/home/doodad/fuse_connection.cfg \
@@ -60,9 +61,18 @@ mkdir -p /home/doodad
         -o entry_timeout=240 \
         -o negative_timeout=120
 
-    mkdir -p /doodad_tmp/$doodadLogPath
-    ln -s /doodad_tmp/$doodadLogPath /doodad
+    ln -s /doodad_tmp/$doodad_log_path /doodad
 
     echo 'hello world' > /doodad/foo.txt
+
+    # shutdown script
+    # This logs in using the system-assigned identity. The system-assigned
+    # identity is the "virtual machine identity." So, rather than needing to
+    # pass credentials to the VM, the VM can automatically authenticate by
+    # virtue of being a microsoft-provided system.
+    # https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli?view=azure-cli-latest#sign-in-with-a-managed-identity
+    az login --identity
+    az group delete -y --no-wait --name $resource_group
+
 
 } >> /home/doodad/user_data.log 2>&1

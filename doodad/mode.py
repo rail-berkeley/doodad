@@ -559,7 +559,6 @@ class AzureMode(LaunchMode):
                  azure_client_id,
                  azure_authentication_key,
                  azure_tenant_id,
-                 azure_network_interface,
                  log_path,
                  terminate_on_end=True,
                  preemptible=True,
@@ -575,7 +574,6 @@ class AzureMode(LaunchMode):
         self.azure_client_id = azure_client_id
         self.azure_authentication_key = azure_authentication_key
         self.azure_tenant_id = azure_tenant_id
-        self.network_interface = azure_network_interface
         self.log_path = log_path
         self.terminate_on_end = terminate_on_end
         self.preemptible = preemptible
@@ -645,6 +643,7 @@ class AzureMode(LaunchMode):
         from azure.mgmt.compute import ComputeManagementClient
         from azure.mgmt.network import NetworkManagementClient
         from azure.mgmt.compute.models import DiskCreateOption
+        from azure.mgmt.authorization import AuthorizationManagementClient
 
         credentials = ServicePrincipalCredentials(
             client_id=self.azure_client_id,
@@ -663,11 +662,20 @@ class AzureMode(LaunchMode):
             credentials,
             self.subscription_id
         )
-        resource_group_params = { 'location':self.region }
-        resource_group_client.resource_groups.create_or_update(
+        authorization_client = AuthorizationManagementClient(
+            credentials,
+            self.subscription_id,
+        )
+        resource_group_params = {
+            'location': self.region,
+        }
+        resource_group = resource_group_client.resource_groups.create_or_update(
             self.azure_resource_group,
             resource_group_params
         )
+        vm_name = 'doodad-vm'
+        print('name:', vm_name)
+        print('resource_group.id:', resource_group.id)
 
         public_ip_addess_params = {
             'location': self.region,
@@ -727,11 +735,15 @@ class AzureMode(LaunchMode):
             ('DOODAD_CONTAINER_NAME', self.azure_container),
         ]:
             startup_script_str = startup_script_str.replace(old, new)
-        import ipdb; ipdb.set_trace()
         custom_data = b64e(startup_script_str)
 
-        vm_name = ('doodad'+str(uuid.uuid4()).replace('-', ''))[:15]
-        print('name:', vm_name, len(vm_name))
+        # vm_name = ('doodad'+str(uuid.uuid4()).replace('-', ''))[:15]
+        # this authenthication code is based on
+        # https://docs.microsoft.com/en-us/samples/azure-samples/compute-python-msi-vm/compute-python-msi-vm/
+        from azure.mgmt.compute import models
+        params_identity = {
+            'type': models.ResourceIdentityType.system_assigned,
+        }
         vm_parameters = {
             'location': self.region,
             'os_profile': {
@@ -757,17 +769,40 @@ class AzureMode(LaunchMode):
                 }]
             },
             'tags': {
-                'accountName': 'doodadtestvitchyr',
-                'containerName': 'doodad-bucket',
-            }
+                'log_path': self.log_path,
+            },
+            'identity': params_identity,
         }
-        creation_result = compute_client.virtual_machines.create_or_update(
+        vm_poller = compute_client.virtual_machines.create_or_update(
             resource_group_name=self.azure_resource_group,
             vm_name=vm_name,
             parameters=vm_parameters,
         )
 
-        return creation_result.result()
+        vm_result = vm_poller.result()
+
+        # We need to ensure that the VM has permissions to delete its own
+        # resource group. We'll assign the built-in "Contributor" role and limit
+        # its scope to this resource group.
+        role_name = 'Contributor'
+        roles = list(authorization_client.role_definitions.list(
+            resource_group.id,
+            filter="roleName eq '{}'".format(role_name)
+        ))
+        assert len(roles) == 1
+        contributor_role = roles[0]
+
+        # Add RG scope to the MSI tokenddd
+        for msi_identity in [vm_result.identity.principal_id]:
+            authorization_client.role_assignments.create(
+                resource_group.id,
+                uuid.uuid4(),  # Role assignment random name
+                {
+                    'role_definition_id': contributor_role.id,
+                    'principal_id': msi_identity
+                }
+            )
+        return resource_group.id
 
 
 def b64e(s):
