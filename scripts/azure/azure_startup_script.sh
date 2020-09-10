@@ -61,7 +61,16 @@ query_metadata() {
         -o entry_timeout=240 \
         -o negative_timeout=120
 
-    mkdir -p /doodad_tmp/$doodad_log_path
+    if [ -d /doodad_tmp/$doodad_log_path ]
+    then
+        timestamp=$(date +%d-%m-%Y_%H-%M-%S)
+        randomid=$(uuidgen | cut -d '-' -f1)
+        doodad_log_path="${doodad_log_path}_${timestamp}_${randomid}"
+        echo "directory exists. creating new log path ${doodad_log_path}"
+        mkdir -p /doodad_tmp/$doodad_log_path
+    else
+        mkdir -p /doodad_tmp/$doodad_log_path
+    fi
     ln -s /doodad_tmp/$doodad_log_path /doodad
 
     echo 'hello world' > /doodad/foo.txt

@@ -14,7 +14,8 @@ CONN_STR = r'DefaultEndpointsProtocol=https;AccountName=railuseaststorage;Accoun
 CONN_STR = os.environ['AZURE_STORAGE_CONNECTION_STRING']
 
 def run():
-    log_path = 'sac-09-09-2020-' + uuid.uuid4().hex[:4]
+    log_path = 'sac-' + uuid.uuid4().hex[:4]
+    # log_path = 'sac-09-09-2020'
     print(log_path)
     launcher = doodad.AzureMode(
         azure_subscription_id=SUBSC_ID,
