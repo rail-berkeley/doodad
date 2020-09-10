@@ -29,6 +29,9 @@ query_metadata() {
         stable"
     sudo apt-get update
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+    echo "starting docker!"
+    systemctl status docker.socket
+    echo "docker started"
 
     # install Azure CLI
     # https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-apt?view=azure-cli-latest
@@ -65,7 +68,7 @@ query_metadata() {
     then
         timestamp=$(date +%d-%m-%Y_%H-%M-%S)
         randomid=$(uuidgen | cut -d '-' -f1)
-        doodad_log_path="${doodad_log_path}_${timestamp}_${randomid}"
+        doodad_log_path="${doodad_log_path}_copy_${timestamp}_${randomid}"
         echo "directory exists. creating new log path ${doodad_log_path}"
         mkdir -p /doodad_tmp/$doodad_log_path
     else
@@ -73,6 +76,8 @@ query_metadata() {
     fi
     ln -s /doodad_tmp/$doodad_log_path /doodad
 
+    # TODO: pull docker image
+    # TODO: run script
     echo 'hello world' > /doodad/foo.txt
 
     # This logs in using the system-assigned identity. The system-assigned
