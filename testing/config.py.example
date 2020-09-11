@@ -1,4 +1,9 @@
-GCP_BUCKET=your_bucket
-GCP_PROJECT=your_project
-GCP_IMAGE=your_image
-S3_BUCKET=your_bucket
+GCP_BUCKET='your_bucket'
+GCP_PROJECT='your_project'
+GCP_IMAGE='your_image'
+S3_BUCKET='your_bucket'
+AZ_SUB_ID='your_id'
+AZ_CLIENT_ID'your_id'
+AZ_TENANT_ID'your_id'
+AZ_SECRET='your_secret'
+AZ_CONN_STR='your_str'
