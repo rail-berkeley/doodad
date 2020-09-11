@@ -553,13 +553,13 @@ class AzureMode(LaunchMode):
     """
     def __init__(self,
                  azure_subscription_id,
-                 azure_resource_group,
                  azure_storage_container,
                  azure_storage_connection_str,
                  azure_client_id,
                  azure_authentication_key,
                  azure_tenant_id,
                  log_path,
+                 azure_resource_group=None,
                  terminate_on_end=True,
                  preemptible=True,
                  region='eastus',
@@ -569,6 +569,8 @@ class AzureMode(LaunchMode):
                  **kwargs):
         super(AzureMode, self).__init__(**kwargs)
         self.subscription_id = azure_subscription_id
+        if azure_resource_group is None:
+            azure_resource_group = 'doodad'+uuid.uuid4().hex[:6]
         self.azure_resource_group = azure_resource_group
         self.azure_container = azure_storage_container
         self.azure_client_id = azure_client_id
