@@ -570,8 +570,8 @@ class AzureMode(LaunchMode):
         super(AzureMode, self).__init__(**kwargs)
         self.subscription_id = azure_subscription_id
         if azure_resource_group is None:
-            azure_resource_group = 'doodad'+uuid.uuid4().hex[:6]
-        self.azure_resource_group = azure_resource_group
+            azure_resource_group = 'doodad'
+        self.azure_resource_group_base = azure_resource_group
         self.azure_container = azure_storage_container
         self.azure_client_id = azure_client_id
         self.azure_authentication_key = azure_authentication_key
@@ -647,6 +647,7 @@ class AzureMode(LaunchMode):
         from azure.mgmt.network import NetworkManagementClient
         from azure.mgmt.compute.models import DiskCreateOption
         from azure.mgmt.authorization import AuthorizationManagementClient
+        azure_resource_group = self.azure_resource_group_base+uuid.uuid4().hex[:6]
 
         credentials = ServicePrincipalCredentials(
             client_id=self.azure_client_id,
@@ -673,7 +674,7 @@ class AzureMode(LaunchMode):
             'location': self.region,
         }
         resource_group = resource_group_client.resource_groups.create_or_update(
-            self.azure_resource_group,
+            azure_resource_group,
             resource_group_params
         )
         vm_name = 'doodad-vm'
@@ -685,7 +686,7 @@ class AzureMode(LaunchMode):
             'public_ip_allocation_method': 'Dynamic'
         }
         poller = network_client.public_ip_addresses.create_or_update(
-            self.azure_resource_group,
+            azure_resource_group,
             'myIPAddress',
             public_ip_addess_params
         )
@@ -698,7 +699,7 @@ class AzureMode(LaunchMode):
             }
         }
         network_client.virtual_networks.create_or_update(
-            self.azure_resource_group,
+            azure_resource_group,
             'myVNet',
             vnet_params
         )
@@ -706,7 +707,7 @@ class AzureMode(LaunchMode):
             'address_prefix': '10.0.0.0/24'
         }
         poller = network_client.subnets.create_or_update(
-            self.azure_resource_group,
+            azure_resource_group,
             'myVNet',
             'mySubnet',
             subnet_params
@@ -723,7 +724,7 @@ class AzureMode(LaunchMode):
             }]
         }
         poller = network_client.network_interfaces.create_or_update(
-            self.azure_resource_group,
+            azure_resource_group,
             'myNic',
             nic_params
         )
@@ -779,7 +780,7 @@ class AzureMode(LaunchMode):
             'identity': params_identity,
         }
         vm_poller = compute_client.virtual_machines.create_or_update(
-            resource_group_name=self.azure_resource_group,
+            resource_group_name=azure_resource_group,
             vm_name=vm_name,
             parameters=vm_parameters,
         )
