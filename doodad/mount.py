@@ -228,3 +228,36 @@ class MountGCP(Mount):
     def dar_extract_command(self):
         return 'echo helloMountGCP'
 
+
+class MountAzure(Mount):
+    def __init__(self,
+                 azure_path=None,
+                 output=True,
+                 dry=False,
+                 exclude_regex='*.tmp',
+                 **kwargs):
+        """
+        Args:
+            zone (str): Zone name. i.e. 'us-west1-a'
+        """
+        super(MountAzure, self).__init__(output=output, **kwargs)
+        # load from config
+        if azure_path.startswith('/'):
+            raise NotImplementedError('Local dir cannot be absolute')
+        else:
+            # We store everything into a fixed dir /doodad on the remote machine
+            # so MountAzure knows to simply sync /doodad
+            self.sync_dir = os.path.join('/doodad', azure_path)
+        self.output = output
+        self.sync_on_terminate = True
+        self.exclude_string = '"'+exclude_regex+'"'
+        self._name = self.sync_dir.replace('/', '_')
+        self.dry = dry
+        assert output
+
+    def dar_build_archive(self, deps_dir):
+        return
+
+    def dar_extract_command(self):
+        return 'echo helloMountAzure'
+
