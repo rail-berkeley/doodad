@@ -59,7 +59,7 @@ class MountLocal(Mount):
         super(MountLocal, self).__init__(mount_point=mount_point, **kwargs)
         self.local_dir = os.path.realpath(os.path.expanduser(local_dir))
         self._name = self.local_dir.replace('/', '_')
-        self.sync_dir = local_dir
+        self.sync_dir = self.local_dir
         self.cleanup = cleanup
         self.filter_ext = filter_ext
         self.filter_dir = filter_dir
