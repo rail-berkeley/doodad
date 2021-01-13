@@ -739,6 +739,7 @@ class AzureMode(LaunchMode):
             ('DOODAD_CONTAINER_NAME', self.azure_container),
             ('DOODAD_REMOTE_SCRIPT_PATH', metadata['remote_script_path']),
             ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
+            ('DOODAD_TERMINATE_ON_END', metadata['terminate'])
         ]:
             startup_script_str = startup_script_str.replace(old, new)
         custom_data = b64e(startup_script_str)

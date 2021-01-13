@@ -15,6 +15,7 @@ query_metadata() {
     container_name=DOODAD_CONTAINER_NAME
     remote_script_path=DOODAD_REMOTE_SCRIPT_PATH
     shell_interpreter=DOODAD_SHELL_INTERPRETER
+    terminate_on_end=DOODAD_TERMINATE_ON_END
 
     # Install docker following instructions from
     # https://docs.docker.com/engine/install/ubuntu/
@@ -64,7 +65,8 @@ query_metadata() {
         --config-file=/home/doodad/fuse_connection.cfg \
         -o attr_timeout=240 \
         -o entry_timeout=240 \
-        -o negative_timeout=120
+        -o negative_timeout=120 \
+        -o allow_other
 
     if [ -d /doodad_tmp/$doodad_log_path ]
     then
@@ -89,8 +91,10 @@ query_metadata() {
     # https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli?view=azure-cli-latest#sign-in-with-a-managed-identity
     az login --identity
 
-    # Delete everything!
-    az group delete -y --no-wait --name $resource_group
+    if [ $terminate_on_end = true ];then
+      # Delete everything!
+      az group delete -y --no-wait --name $resource_group
+    fi
 
 
 } >> /home/doodad/user_data.log 2>&1
