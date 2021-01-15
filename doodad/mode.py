@@ -566,6 +566,8 @@ class AzureMode(LaunchMode):
                  instance_type='Standard_DS1',
                  exp_label='doodad_exp',
                  data_sync_interval=15,
+                 num_gpu=1,
+                 gpu_model='nvidia-tesla-k80',
                  **kwargs):
         super(AzureMode, self).__init__(**kwargs)
         self.subscription_id = azure_subscription_id
@@ -589,7 +591,10 @@ class AzureMode(LaunchMode):
         self.connection_info = dict([k.split('=', 1) for k in self.connection_str.split(';')])
 
         if self.use_gpu:
-            raise NotImplementedError()
+            self.num_gpu = num_gpu
+            self.gpu_model = gpu_model
+            self.instance_type = azure_util.get_gpu_type_instance(self.gpu_model)
+            print('Overriding instance type for the GPU support. New instance type: {}'.format(self.instance_type))
 
     def __str__(self):
         return 'Azure-%s-%s' % (self.azure_resource_group, self.instance_type)
@@ -627,7 +632,7 @@ class AzureMode(LaunchMode):
             'remote_script_path': remote_script,
             'container_name': self.azure_container,
             'terminate': json.dumps(self.terminate_on_end),
-            'use_gpu': self.use_gpu,
+            'use_gpu': json.dumps(self.use_gpu),
             'script_args': script_args,
             'startup-script': start_script,
             'shutdown-script': stop_script,
@@ -739,7 +744,8 @@ class AzureMode(LaunchMode):
             ('DOODAD_CONTAINER_NAME', self.azure_container),
             ('DOODAD_REMOTE_SCRIPT_PATH', metadata['remote_script_path']),
             ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
-            ('DOODAD_TERMINATE_ON_END', metadata['terminate'])
+            ('DOODAD_TERMINATE_ON_END', metadata['terminate']),
+            ('DOODAD_USE_GPU', metadata['use_gpu'])
         ]:
             startup_script_str = startup_script_str.replace(old, new)
         custom_data = b64e(startup_script_str)
@@ -764,10 +770,12 @@ class AzureMode(LaunchMode):
             },
             'storage_profile': {
                 'image_reference': {
-                    'publisher': 'Canonical',
-                    'offer': 'UbuntuServer',
-                    'sku': '16.04.0-LTS',
-                    'version': 'latest'
+                    "offer": "UbuntuServer",
+                    "publisher": "Canonical",
+                    "sku": "18.04-LTS",
+                    "urn": "Canonical:UbuntuServer:18.04-LTS:latest",
+                    "urnAlias": "UbuntuLTS",
+                    "version": "latest"
                 }
             },
             'network_profile': {

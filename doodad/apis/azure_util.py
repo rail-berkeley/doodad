@@ -40,6 +40,23 @@ def upload_file_to_azure_storage(
     return remote_path
 
 
+def get_gpu_type_instance(gpu_model, num_gpu=1):
+    """
+    Check the available gpu models for each zone
+    https://cloud.google.com/compute/docs/gpus/
+    """
+
+    # if gpu_model == 'nvidia-tesla-t4':
+    #     return 'Standard_NC4as_T4_v3'
+    if gpu_model == 'nvidia-tesla-v100':
+        return 'Standard_NC6s_v3'
+    elif gpu_model == 'nvidia-tesla-k80':
+        return 'Standard_NC6'
+    else:
+        raise ValueError('Unsuported GPU {}'.format(gpu_model))
+
+
+
 if __name__ == '__main__':
     import os
     cstr = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
