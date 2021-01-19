@@ -568,6 +568,8 @@ class AzureMode(LaunchMode):
                  data_sync_interval=15,
                  num_gpu=1,
                  gpu_model='nvidia-tesla-k80',
+                 num_vcpu='default',  # specifies the number of vCPU for GPU instance
+                 promo_price=True,  # will use promotion price if available
                  **kwargs):
         super(AzureMode, self).__init__(**kwargs)
         self.subscription_id = azure_subscription_id
@@ -591,10 +593,7 @@ class AzureMode(LaunchMode):
         self.connection_info = dict([k.split('=', 1) for k in self.connection_str.split(';')])
 
         if self.use_gpu:
-            self.num_gpu = num_gpu
-            self.gpu_model = gpu_model
-            self.instance_type = azure_util.get_gpu_type_instance(self.gpu_model)
-            print('Overriding instance type for the GPU support. New instance type: {}'.format(self.instance_type))
+            self.instance_type = azure_util.get_gpu_type_instance(gpu_model, num_gpu, num_vcpu, promo_price)
 
     def __str__(self):
         return 'Azure-%s-%s' % (self.azure_resource_group, self.instance_type)

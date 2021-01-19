@@ -40,21 +40,34 @@ def upload_file_to_azure_storage(
     return remote_path
 
 
-def get_gpu_type_instance(gpu_model, num_gpu=1):
+GPU_INSTANCE_DICT = {'nvidia-tesla-v100': {1: 'Standard_NC6s_v3', 2: 'Standard_NC12s_v3', 4:'Standard_NC24s_v3'},
+                     'nvidia-tesla-k80': {1: 'Standard_NC6', 2: 'Standard_NC12', 4: 'Standard_NC24'},
+                     # 'nvidia-tesla-t4': {1: {'default': 'Standard_NC4as_T4_v3', 4: 'Standard_NC4as_T4_v3', 8: 'Standard_NC8as_T4_v3', 16: 'Standard_NC16as_T4_v3'}, 4: 'Standard_NC64as_T4_v3'} # no quota for now
+                     'nvidia-tesla-m60': {1: 'Standard_NV6', 2: 'Standard_NV12', 4: 'Standard_NV24'}  # not efficient in DL, they are more suitable for visualizations
+                    }
+
+PROMO_GPU = []
+
+def get_gpu_type_instance(gpu_model, num_gpu, num_vcpu, promo_price):
     """
     Check the available gpu models for each zone
     https://cloud.google.com/compute/docs/gpus/
     """
-
-    # if gpu_model == 'nvidia-tesla-t4':
-    #     return 'Standard_NC4as_T4_v3'
-    if gpu_model == 'nvidia-tesla-v100':
-        return 'Standard_NC6s_v3'
-    elif gpu_model == 'nvidia-tesla-k80':
-        return 'Standard_NC6'
+    if gpu_model not in GPU_INSTANCE_DICT:
+        ValueError('Unsuported GPU {}'.format(gpu_model))
+    instance_series = GPU_INSTANCE_DICT[gpu_model]
+    if num_gpu not in instance_series:
+        raise ValueError('Unsuported GPU no. {} for GPU {}'.format(num_gpu, gpu_model))
+    instance_type = instance_series[num_gpu]
+    if isinstance(instance_type, dict):
+        if num_vcpu not in instance_type:
+            raise ValueError('Unsuported vCPU no. {} for GPU {} with GPU no. {}'.format(num_vcpu, gpu_model, num_gpu))
+        ret = instance_type[num_vcpu]
     else:
-        raise ValueError('Unsuported GPU {}'.format(gpu_model))
-
+        ret = instance_type
+    if promo_price and gpu_model in PROMO_GPU:
+        ret += '_Promo'
+    return ret
 
 
 if __name__ == '__main__':
