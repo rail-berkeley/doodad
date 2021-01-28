@@ -561,7 +561,7 @@ class AzureMode(LaunchMode):
                  log_path,
                  azure_resource_group=None,
                  terminate_on_end=True,
-                 preemptible=True,
+                 preemptible=False,
                  region='eastus',
                  instance_type='Standard_DS1',
                  exp_label='doodad_exp',
@@ -570,6 +570,7 @@ class AzureMode(LaunchMode):
                  gpu_model='nvidia-tesla-k80',
                  num_vcpu='default',  # specifies the number of vCPU for GPU instance
                  promo_price=True,  # will use promotion price if available
+                 spot_price=None,
                  **kwargs):
         super(AzureMode, self).__init__(**kwargs)
         self.subscription_id = azure_subscription_id
@@ -587,6 +588,9 @@ class AzureMode(LaunchMode):
         self.instance_type = instance_type
         self.azure_label = exp_label
         self.data_sync_interval = data_sync_interval
+        self.spot_max_price = spot_price
+        if self.spot_max_price is None:
+            self.spot_max_price = -1
         self.compute = googleapiclient.discovery.build('compute', 'v1')
 
         self.connection_str = azure_storage_connection_str
@@ -625,26 +629,50 @@ class AzureMode(LaunchMode):
         with open(azure_util.AZURE_SHUTDOWN_SCRIPT_PATH) as f:
             stop_script = f.read()
 
-        metadata = {
-            'shell_interpreter': self.shell_interpreter,
-            'azure_container_path': self.log_path,
-            'remote_script_path': remote_script,
-            'container_name': self.azure_container,
-            'terminate': json.dumps(self.terminate_on_end),
-            'use_gpu': json.dumps(self.use_gpu),
-            'script_args': script_args,
-            'startup-script': start_script,
-            'shutdown-script': stop_script,
-            'data_sync_interval': self.data_sync_interval
-        }
-        unique_name = "doodad" + str(uuid.uuid4()).replace("-", "")
-        instance_info = self.create_instance(metadata, unique_name, exp_name, exp_prefix, dry=dry)
-        if verbose:
-            print('Launched instance %s' % unique_name)
-            print(instance_info)
+        regions = [self.region]
+        if self.preemptible:
+            # try all regions
+            us_regions = ['eastus', 'westus2', 'eastus2', 'westus', 'centralus', 'northcentralus',
+                          'southcentralus', 'westcentralus']
+            abroad = ['canadacentral', 'canadaeast', 'northeurope', 'ukwest', 'uksouth', 'westeurope', 'francecentral',
+                      'switzerlandnorth', 'germanywestcentral', 'norwayeast', 'brazilsouth', 'eastasia',
+                      'japanwest', 'japaneast', 'koreacentral', 'koreasouth', 'southeastasia',
+                      'australiasoutheast', 'australiaeast', 'australiacentral',
+                      'westindia', 'southindia', 'centralindia', 'southafricanorth', 'uaenorth'
+                      ]
+            all_regions = regions + us_regions + abroad  # prioritize selected self.region
+            regions = []
+            [regions.append(x) for x in all_regions if x not in regions]
+
+        for region in regions:
+            metadata = {
+                'shell_interpreter': self.shell_interpreter,
+                'azure_container_path': self.log_path,
+                'remote_script_path': remote_script,
+                'container_name': self.azure_container,
+                'terminate': json.dumps(self.terminate_on_end),
+                'use_gpu': json.dumps(self.use_gpu),
+                'script_args': script_args,
+                'startup-script': start_script,
+                'shutdown-script': stop_script,
+                'data_sync_interval': self.data_sync_interval,
+                'region': region
+            }
+            unique_name = "doodad" + str(uuid.uuid4()).replace("-", "")
+            success, instance_info = self.create_instance(metadata, unique_name, exp_name, exp_prefix, dry=dry, verbose=verbose)
+            if success:
+                print("Instance launched successfully")
+                break
+        if not success:
+            print('Instance launch failed.')
+
+            if self.preemptible:
+                print('Preemptible launch creation failed in all regions. Either retry with different VM type or set'
+                      ' preemptible=False')
         return metadata
 
-    def create_instance(self, metadata, name, exp_name="", exp_prefix="", dry=False):
+    def create_instance(self, metadata, name, exp_name="", exp_prefix="", dry=False, verbose=False):
+        success = False
         from azure.common.credentials import ServicePrincipalCredentials
         from azure.mgmt.resource import ResourceManagementClient
         from azure.mgmt.compute import ComputeManagementClient
@@ -652,6 +680,9 @@ class AzureMode(LaunchMode):
         from azure.mgmt.compute.models import DiskCreateOption
         from azure.mgmt.authorization import AuthorizationManagementClient
         azure_resource_group = self.azure_resource_group_base+uuid.uuid4().hex[:6]
+        region = metadata['region']
+        instance_type_str = 'a spot instance' if self.preemptible else 'an instance'
+        print('Creating {} of type {} in {}'.format(instance_type_str, self.instance_type, region))
 
         credentials = ServicePrincipalCredentials(
             client_id=self.azure_client_id,
@@ -675,18 +706,18 @@ class AzureMode(LaunchMode):
             self.subscription_id,
         )
         resource_group_params = {
-            'location': self.region,
+            'location': region,
         }
         resource_group = resource_group_client.resource_groups.create_or_update(
             azure_resource_group,
             resource_group_params
         )
         vm_name = 'doodad-vm'
-        print('name:', vm_name)
-        print('resource_group.id:', resource_group.id)
+        print('VM name:', vm_name)
+        print('resource group id:', resource_group.id)
 
         public_ip_addess_params = {
-            'location': self.region,
+            'location': region,
             'public_ip_allocation_method': 'Dynamic'
         }
         poller = network_client.public_ip_addresses.create_or_update(
@@ -697,7 +728,7 @@ class AzureMode(LaunchMode):
         publicIPAddress = poller.result()
 
         vnet_params = {
-            'location': self.region,
+            'location': region,
             'address_space': {
                 'address_prefixes': ['10.0.0.0/16']
             }
@@ -718,7 +749,7 @@ class AzureMode(LaunchMode):
         )
         subnet_info = poller.result()
         nic_params = {
-            'location': self.region,
+            'location': region,
             'ip_configurations': [{
                 'name': 'myIPConfig',
                 'public_ip_address': publicIPAddress,
@@ -757,7 +788,7 @@ class AzureMode(LaunchMode):
             'type': models.ResourceIdentityType.system_assigned,
         }
         vm_parameters = {
-            'location': self.region,
+            'location': region,
             'os_profile': {
                 'computer_name': vm_name,
                 'admin_username': 'doodad',
@@ -787,11 +818,31 @@ class AzureMode(LaunchMode):
             },
             'identity': params_identity,
         }
-        vm_poller = compute_client.virtual_machines.create_or_update(
-            resource_group_name=azure_resource_group,
-            vm_name=vm_name,
-            parameters=vm_parameters,
-        )
+        if self.preemptible:
+            spot_args = {
+                "priority": "Spot",
+                "evictionPolicy": "Deallocate",
+                "billingProfile": {
+                    "maxPrice": self.spot_max_price
+                }
+            }
+            vm_parameters.update(spot_args)
+        from msrestazure.azure_exceptions import CloudError as AzureCloudError
+        try:
+            vm_poller = compute_client.virtual_machines.create_or_update(
+                resource_group_name=azure_resource_group,
+                vm_name=vm_name,
+                parameters=vm_parameters,
+            )
+        except AzureCloudError as e:
+            print("Error when creating VM. Error message:")
+            print(e.message)
+            if verbose:
+                print("Deleting created resource group {}.".format(resource_group.id))
+            resource_group_client.resource_groups.delete(
+                azure_resource_group
+            )
+            return success, e
 
         vm_result = vm_poller.result()
 
@@ -816,7 +867,8 @@ class AzureMode(LaunchMode):
                     'principal_id': msi_identity
                 }
             )
-        return resource_group.id
+        success = True
+        return success, resource_group.id
 
 
 def b64e(s):
