@@ -39,9 +39,6 @@ def run_command(
         A string output if return_output is True,
         else None
     """
-    if isinstance(mode, launch_mode.AzureMode):
-        # workaround to output buffering for Azure
-        command = command.replace('python', 'python -u').replace('python3', 'python3 -u')
     with archive_builder.temp_archive_file() as archive_file:
         archive = archive_builder.build_archive(archive_filename=archive_file,
                                                 payload_script=command,
