@@ -720,153 +720,156 @@ class AzureMode(LaunchMode):
             'location': region,
             'public_ip_allocation_method': 'Dynamic'
         }
-        poller = network_client.public_ip_addresses.create_or_update(
-            azure_resource_group,
-            'myIPAddress',
-            public_ip_addess_params
-        )
-        publicIPAddress = poller.result()
-
-        vnet_params = {
-            'location': region,
-            'address_space': {
-                'address_prefixes': ['10.0.0.0/16']
-            }
-        }
-        network_client.virtual_networks.create_or_update(
-            azure_resource_group,
-            'myVNet',
-            vnet_params
-        )
-        subnet_params = {
-            'address_prefix': '10.0.0.0/24'
-        }
-        poller = network_client.subnets.create_or_update(
-            azure_resource_group,
-            'myVNet',
-            'mySubnet',
-            subnet_params
-        )
-        subnet_info = poller.result()
-        nic_params = {
-            'location': region,
-            'ip_configurations': [{
-                'name': 'myIPConfig',
-                'public_ip_address': publicIPAddress,
-                'subnet': {
-                    'id': subnet_info.id
-                }
-            }]
-        }
-        poller = network_client.network_interfaces.create_or_update(
-            azure_resource_group,
-            'myNic',
-            nic_params
-        )
-        nic = poller.result()
-
-        with open(azure_util.AZURE_STARTUP_SCRIPT_PATH, mode='r') as f:
-            startup_script_str = f.read()
-        for old, new in [
-            ('DOODAD_LOG_PATH', self.log_path),
-            ('DOODAD_STORAGE_ACCOUNT_NAME', self.connection_info['AccountName']),
-            ('DOODAD_STORAGE_ACCOUNT_KEY', self.connection_info['AccountKey']),
-            ('DOODAD_CONTAINER_NAME', self.azure_container),
-            ('DOODAD_REMOTE_SCRIPT_PATH', metadata['remote_script_path']),
-            ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
-            ('DOODAD_TERMINATE_ON_END', metadata['terminate']),
-            ('DOODAD_USE_GPU', metadata['use_gpu'])
-        ]:
-            startup_script_str = startup_script_str.replace(old, new)
-        custom_data = b64e(startup_script_str)
-
-        # vm_name = ('doodad'+str(uuid.uuid4()).replace('-', ''))[:15]
-        # this authenthication code is based on
-        # https://docs.microsoft.com/en-us/samples/azure-samples/compute-python-msi-vm/compute-python-msi-vm/
-        from azure.mgmt.compute import models
-        params_identity = {
-            'type': models.ResourceIdentityType.system_assigned,
-        }
-        vm_parameters = {
-            'location': region,
-            'os_profile': {
-                'computer_name': vm_name,
-                'admin_username': 'doodad',
-                'admin_password': 'Azure1',
-                'custom_data': custom_data,
-            },
-            'hardware_profile': {
-                'vm_size': self.instance_type
-            },
-            'storage_profile': {
-                'image_reference': {
-                    "offer": "UbuntuServer",
-                    "publisher": "Canonical",
-                    "sku": "18.04-LTS",
-                    "urn": "Canonical:UbuntuServer:18.04-LTS:latest",
-                    "urnAlias": "UbuntuLTS",
-                    "version": "latest"
-                }
-            },
-            'network_profile': {
-                'network_interfaces': [{
-                    'id': nic.id
-                }]
-            },
-            'tags': {
-                'log_path': self.log_path,
-            },
-            'identity': params_identity,
-        }
-        if self.preemptible:
-            spot_args = {
-                "priority": "Spot",
-                "evictionPolicy": "Deallocate",
-                "billingProfile": {
-                    "maxPrice": self.spot_max_price
-                }
-            }
-            vm_parameters.update(spot_args)
-        from msrestazure.azure_exceptions import CloudError as AzureCloudError
         try:
+            poller = network_client.public_ip_addresses.create_or_update(
+                azure_resource_group,
+                'myIPAddress',
+                public_ip_addess_params
+            )
+            publicIPAddress = poller.result()
+
+            vnet_params = {
+                'location': region,
+                'address_space': {
+                    'address_prefixes': ['10.0.0.0/16']
+                }
+            }
+            network_client.virtual_networks.create_or_update(
+                azure_resource_group,
+                'myVNet',
+                vnet_params
+            )
+            subnet_params = {
+                'address_prefix': '10.0.0.0/24'
+            }
+            poller = network_client.subnets.create_or_update(
+                azure_resource_group,
+                'myVNet',
+                'mySubnet',
+                subnet_params
+            )
+            subnet_info = poller.result()
+            nic_params = {
+                'location': region,
+                'ip_configurations': [{
+                    'name': 'myIPConfig',
+                    'public_ip_address': publicIPAddress,
+                    'subnet': {
+                        'id': subnet_info.id
+                    }
+                }]
+            }
+            poller = network_client.network_interfaces.create_or_update(
+                azure_resource_group,
+                'myNic',
+                nic_params
+            )
+            nic = poller.result()
+
+            with open(azure_util.AZURE_STARTUP_SCRIPT_PATH, mode='r') as f:
+                startup_script_str = f.read()
+            for old, new in [
+                ('DOODAD_LOG_PATH', self.log_path),
+                ('DOODAD_STORAGE_ACCOUNT_NAME', self.connection_info['AccountName']),
+                ('DOODAD_STORAGE_ACCOUNT_KEY', self.connection_info['AccountKey']),
+                ('DOODAD_CONTAINER_NAME', self.azure_container),
+                ('DOODAD_REMOTE_SCRIPT_PATH', metadata['remote_script_path']),
+                ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
+                ('DOODAD_TERMINATE_ON_END', metadata['terminate']),
+                ('DOODAD_USE_GPU', metadata['use_gpu'])
+            ]:
+                startup_script_str = startup_script_str.replace(old, new)
+            custom_data = b64e(startup_script_str)
+
+            # vm_name = ('doodad'+str(uuid.uuid4()).replace('-', ''))[:15]
+            # this authenthication code is based on
+            # https://docs.microsoft.com/en-us/samples/azure-samples/compute-python-msi-vm/compute-python-msi-vm/
+            from azure.mgmt.compute import models
+            params_identity = {
+                'type': models.ResourceIdentityType.system_assigned,
+            }
+            vm_parameters = {
+                'location': region,
+                'os_profile': {
+                    'computer_name': vm_name,
+                    'admin_username': 'doodad',
+                    'admin_password': 'Azure1',
+                    'custom_data': custom_data,
+                },
+                'hardware_profile': {
+                    'vm_size': self.instance_type
+                },
+                'storage_profile': {
+                    'image_reference': {
+                        "offer": "UbuntuServer",
+                        "publisher": "Canonical",
+                        "sku": "18.04-LTS",
+                        "urn": "Canonical:UbuntuServer:18.04-LTS:latest",
+                        "urnAlias": "UbuntuLTS",
+                        "version": "latest"
+                    }
+                },
+                'network_profile': {
+                    'network_interfaces': [{
+                        'id': nic.id
+                    }]
+                },
+                'tags': {
+                    'log_path': self.log_path,
+                },
+                'identity': params_identity,
+            }
+            if self.preemptible:
+                spot_args = {
+                    "priority": "Spot",
+                    "evictionPolicy": "Deallocate",
+                    "billingProfile": {
+                        "maxPrice": self.spot_max_price
+                    }
+                }
+                vm_parameters.update(spot_args)
             vm_poller = compute_client.virtual_machines.create_or_update(
                 resource_group_name=azure_resource_group,
                 vm_name=vm_name,
                 parameters=vm_parameters,
             )
-        except AzureCloudError as e:
-            print("Error when creating VM. Error message:")
-            print(e.message)
-            if verbose:
-                print("Deleting created resource group {}.".format(resource_group.id))
-            resource_group_client.resource_groups.delete(
-                azure_resource_group
-            )
-            return success, e
+            vm_result = vm_poller.result()
 
-        vm_result = vm_poller.result()
-
-        # We need to ensure that the VM has permissions to delete its own
-        # resource group. We'll assign the built-in "Contributor" role and limit
-        # its scope to this resource group.
-        role_name = 'Contributor'
-        roles = list(authorization_client.role_definitions.list(
-            resource_group.id,
-            filter="roleName eq '{}'".format(role_name)
-        ))
-        assert len(roles) == 1
-        contributor_role = roles[0]
-
-        # Add RG scope to the MSI tokenddd
-        for msi_identity in [vm_result.identity.principal_id]:
-            authorization_client.role_assignments.create(
+            # We need to ensure that the VM has permissions to delete its own
+            # resource group. We'll assign the built-in "Contributor" role and limit
+            # its scope to this resource group.
+            role_name = 'Contributor'
+            roles = list(authorization_client.role_definitions.list(
                 resource_group.id,
-                uuid.uuid4(),  # Role assignment random name
-                {
-                    'role_definition_id': contributor_role.id,
-                    'principal_id': msi_identity
-                }
-            )
+                filter="roleName eq '{}'".format(role_name)
+            ))
+            assert len(roles) == 1
+            contributor_role = roles[0]
+
+            # Add RG scope to the MSI tokenddd
+            for msi_identity in [vm_result.identity.principal_id]:
+                authorization_client.role_assignments.create(
+                    resource_group.id,
+                    uuid.uuid4(),  # Role assignment random name
+                    {
+                        'role_definition_id': contributor_role.id,
+                        'principal_id': msi_identity
+                    }
+                )
+        except (Exception, KeyboardInterrupt) as e:
+            if 'resource_group' in locals():
+                if verbose:
+                    print("Deleting created resource group id: {}.".format(resource_group.id))
+                resource_group_client.resource_groups.delete(
+                    azure_resource_group
+                )
+            from msrestazure.azure_exceptions import CloudError as AzureCloudError
+            if isinstance(e, AzureCloudError):
+                print("Error when creating VM. Error message:")
+                print(e.message + '\n')
+
+                return success, e
+            raise e
         success = True
         return success, resource_group.id
 

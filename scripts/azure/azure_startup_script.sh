@@ -97,12 +97,13 @@ query_metadata() {
               --name NvidiaGpuDriverLinux \
               --publisher Microsoft.HpcCompute \
               --version 1.3
-        echo 'Waiting for installation to complete'
 
         # Install Nvidia Docker
         distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
            && curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add - \
            && curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+
+        echo 'Waiting for installation to complete'
         sudo aptdcon --refresh
         echo "Installing nvidia-docker2"
         yes | sudo aptdcon --hide-terminal --install nvidia-docker2

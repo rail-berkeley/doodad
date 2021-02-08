@@ -42,8 +42,9 @@ def upload_file_to_azure_storage(
 
 GPU_INSTANCE_DICT = {'nvidia-tesla-v100': {1: 'Standard_NC6s_v3', 2: 'Standard_NC12s_v3', 4:'Standard_NC24s_v3'},
                      'nvidia-tesla-k80': {1: 'Standard_NC6', 2: 'Standard_NC12', 4: 'Standard_NC24'},
-                     # 'nvidia-tesla-t4': {1: {'default': 'Standard_NC4as_T4_v3', 4: 'Standard_NC4as_T4_v3', 8: 'Standard_NC8as_T4_v3', 16: 'Standard_NC16as_T4_v3'}, 4: 'Standard_NC64as_T4_v3'} # no quota for now
-                     # 'nvidia-tesla-m60': {1: 'Standard_NV6', 2: 'Standard_NV12', 4: 'Standard_NV24'}  # not efficient in DL, they are more suitable for visualizations
+                     'nvidia-tesla-t4': {1: {'default': 'Standard_NC4as_T4_v3', 4: 'Standard_NC4as_T4_v3', 8: 'Standard_NC8as_T4_v3', 16: 'Standard_NC16as_T4_v3'}, 4: 'Standard_NC64as_T4_v3'}
+                     # 'nvidia-tesla-m60': {1: 'Standard_NV6', 2: 'Standard_NV12', 4: 'Standard_NV24'}  # installation breaks because VM restarts during nvidia drivers install
+                                                                                                        # M60 is not efficient in DL, they are more suitable for visualizations
                     }
 
 PROMO_GPU = []
