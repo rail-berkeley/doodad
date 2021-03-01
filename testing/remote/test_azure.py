@@ -3,7 +3,7 @@ Instructions:
 
 1) Set up testing/config.py (copy from config.py.example and fill in the fields)
 2) Run this script
-3) Look inside your AZ_CONTAINER and you should see results in secret.txt
+3) Look inside your AZ_CONTAINER and you should see results in doodad_test_experiment/azure_script_output/secret.txt
 """
 import os
 import doodad

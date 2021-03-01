@@ -3,7 +3,7 @@ Instructions:
 
 1) Set up testing/config.py (copy from config.py.example and fill in the fields)
 2) Run this script
-3) Look inside your AZ_CONTAINER and you should see results in secret.txt
+3) Look inside your AZ_CONTAINER and you should see results in doodad_gpu_test_experiment/azure_script_output/secret.txt
 """
 import doodad
 from doodad.utils import TESTING_DIR
@@ -17,7 +17,7 @@ def run():
         azure_authentication_key=AZ_SECRET,
         azure_tenant_id=AZ_TENANT_ID,
         azure_storage_container=AZ_CONTAINER,
-        log_path='doodad_test_experiment',
+        log_path='doodad_gpu_test_experiment',
         region='eastus',
         use_gpu=True,
         gpu_model='nvidia-tesla-k80',
