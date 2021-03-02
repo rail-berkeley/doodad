@@ -679,6 +679,13 @@ class AzureMode(LaunchMode):
         from azure.mgmt.network import NetworkManagementClient
         from azure.mgmt.compute.models import DiskCreateOption
         from azure.mgmt.authorization import AuthorizationManagementClient
+
+        # TODO: Remove this guard after Azure fixes the issue
+        if self.preemptible:
+            print("Spot instances are not functional on our subscription just yet. Azure is currently investigating this issue.")
+            print("This guard will be removed as soon as the issue is fixed.")
+            exit(1)
+
         azure_resource_group = self.azure_resource_group_base+uuid.uuid4().hex[:6]
         region = metadata['region']
         instance_type_str = 'a spot instance' if self.preemptible else 'an instance'

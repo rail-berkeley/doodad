@@ -11,15 +11,15 @@ from doodad.easy_launch.config_private import AZ_SUB_ID, AZ_CLIENT_ID, AZ_TENANT
 
 def run():
     launcher = doodad.AzureMode(
-         azure_subscription_id=AZ_SUB_ID,
-         azure_storage_connection_str=AZ_CONN_STR,
-         azure_client_id=AZ_CLIENT_ID,
-         azure_authentication_key=AZ_SECRET,
-         azure_tenant_id=AZ_TENANT_ID,
-         azure_storage_container=AZ_CONTAINER,
-         log_path='test_azure_with_mounts',
-         region='eastus',
-         instance_type='Standard_DS1_v2',
+        azure_subscription_id=AZ_SUB_ID,
+        azure_storage_connection_str=AZ_CONN_STR,
+        azure_client_id=AZ_CLIENT_ID,
+        azure_authentication_key=AZ_SECRET,
+        azure_tenant_id=AZ_TENANT_ID,
+        azure_storage_container=AZ_CONTAINER,
+        log_path='test_azure_with_mounts',
+        region='eastus',
+        instance_type='Standard_DS1_v2',
     )
     az_mount = doodad.MountAzure(
         'azure_script_output',

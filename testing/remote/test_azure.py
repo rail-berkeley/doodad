@@ -12,15 +12,15 @@ from testing.config import AZ_SUB_ID, AZ_CLIENT_ID, AZ_TENANT_ID, AZ_SECRET, AZ_
 
 def run():
     launcher = doodad.AzureMode(
-         azure_subscription_id=AZ_SUB_ID,
-         azure_storage_connection_str=AZ_CONN_STR,
-         azure_client_id=AZ_CLIENT_ID,
-         azure_authentication_key=AZ_SECRET,
-         azure_tenant_id=AZ_TENANT_ID,
-         azure_storage_container=AZ_CONTAINER,
-         log_path='doodad_test_experiment',
-         region='eastus',
-         instance_type='Standard_DS1_v2',
+        azure_subscription_id=AZ_SUB_ID,
+        azure_storage_connection_str=AZ_CONN_STR,
+        azure_client_id=AZ_CLIENT_ID,
+        azure_authentication_key=AZ_SECRET,
+        azure_tenant_id=AZ_TENANT_ID,
+        azure_storage_container=AZ_CONTAINER,
+        log_path='doodad_test_experiment',
+        region='eastus',
+        instance_type='Standard_DS1_v2'
     )
 
     az_mount = doodad.MountAzure(
