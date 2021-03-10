@@ -550,6 +550,27 @@ class GCPMode(LaunchMode):
 class AzureMode(LaunchMode):
     """
     Azure Launch Mode.
+    For the instructions for 6 first parameters follow https://docs.google.com/document/d/1j_d_FFEIOD99nLPRK-PFqb4YjZX_5FsecL3weNMvz48/edit#bookmark=id.a3b9gc7rf2m3
+
+    Args:
+            azure_subscription_id (str): AZURE_SUBSCRIPTION_ID
+            azure_storage_container (str): AZURE_STORAGE_CONTAINER
+            azure_storage_connection_str (str): AZURE_STORAGE_CONNECTION_STRING
+            azure_client_id (str): AZURE_CLIENT_ID
+            azure_authentication_key (str): AZURE_CLIENT_SECRET
+            azure_tenant_id (str): AZURE_TENANT_ID
+            log_path (str): The path inside the container used to mount MountAzure instances
+            azure_resource_group (str): Prefix for the resource group created by doodad
+            terminate_on_end (bool): Terminate instance when script finishes
+            preemptible (bool): Start a preemptible instance (not working for now until Azure fixes the issue)
+            region (str): Azure compute zone
+            instance_type( (str): VM instance size
+            num_gpu (int): No of the GPUs. See GPU_INSTANCE_DICT in https://github.com/rail-berkeley/doodad/blob/master/doodad/apis/azure_util.py
+            gpu_model (str): GPU model. See https://cloud.google.com/compute/docs/gpus. GCP names are translated behind the scene into Azure instance names.
+            num_vcpu (int): Specifies the number of vCPU for GPU instance
+            promo_price (bool): Use promo price if available
+            spot_price (float): Maximal price for preemptible instance. Specify -1 for the no limit price for the spot instance.
+            **kwargs:
     """
     def __init__(self,
                  azure_subscription_id,
@@ -564,13 +585,11 @@ class AzureMode(LaunchMode):
                  preemptible=False,
                  region='eastus',
                  instance_type='Standard_DS1',
-                 exp_label='doodad_exp',
-                 data_sync_interval=15,
                  num_gpu=1,
                  gpu_model='nvidia-tesla-k80',
-                 num_vcpu='default',  # specifies the number of vCPU for GPU instance
-                 promo_price=True,  # will use promotion price if available
-                 spot_price=None,
+                 num_vcpu='default',
+                 promo_price=True,
+                 spot_price=-1,
                  **kwargs):
         super(AzureMode, self).__init__(**kwargs)
         self.subscription_id = azure_subscription_id
@@ -586,11 +605,7 @@ class AzureMode(LaunchMode):
         self.preemptible = preemptible
         self.region = region
         self.instance_type = instance_type
-        self.azure_label = exp_label
-        self.data_sync_interval = data_sync_interval
         self.spot_max_price = spot_price
-        if self.spot_max_price is None:
-            self.spot_max_price = -1
         self.compute = googleapiclient.discovery.build('compute', 'v1')
 
         self.connection_str = azure_storage_connection_str
@@ -600,7 +615,7 @@ class AzureMode(LaunchMode):
             self.instance_type = azure_util.get_gpu_type_instance(gpu_model, num_gpu, num_vcpu, promo_price)
 
     def __str__(self):
-        return 'Azure-%s-%s' % (self.azure_resource_group, self.instance_type)
+        return 'Azure-%s-%s' % (self.azure_resource_group_base, self.instance_type)
 
     def print_launch_message(self):
         print('Go to https://portal.azure.com/ to monitor jobs.')
@@ -620,9 +635,6 @@ class AzureMode(LaunchMode):
                 container_name=self.azure_container,
                 connection_str=self.connection_str,
                 dry=dry)
-
-        exp_name = "{}-{}".format(self.azure_label, gcp_util.make_timekey())
-        exp_prefix = self.azure_label
 
         with open(azure_util.AZURE_STARTUP_SCRIPT_PATH) as f:
             start_script = f.read()
@@ -655,11 +667,9 @@ class AzureMode(LaunchMode):
                 'script_args': script_args,
                 'startup-script': start_script,
                 'shutdown-script': stop_script,
-                'data_sync_interval': self.data_sync_interval,
                 'region': region
             }
-            unique_name = "doodad" + str(uuid.uuid4()).replace("-", "")
-            success, instance_info = self.create_instance(metadata, unique_name, exp_name, exp_prefix, dry=dry, verbose=verbose)
+            success, instance_info = self.create_instance(metadata, verbose=verbose)
             if success:
                 print("Instance launched successfully")
                 break
@@ -671,7 +681,7 @@ class AzureMode(LaunchMode):
                       ' preemptible=False')
         return metadata
 
-    def create_instance(self, metadata, name, exp_name="", exp_prefix="", dry=False, verbose=False):
+    def create_instance(self, metadata, verbose=False):
         success = False
         from azure.common.credentials import ServicePrincipalCredentials
         from azure.mgmt.resource import ResourceManagementClient

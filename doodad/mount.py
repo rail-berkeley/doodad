@@ -160,12 +160,8 @@ class MountGit(Mount):
 class MountS3(Mount):
     def __init__(self,
                 s3_path,
-                sync_interval=15,
-                output=True,
-                dry=False,
-                include_types=('*.txt', '*.csv', '*.json', '*.gz', '*.tar', '*.log', '*.pkl'),
                 **kwargs):
-        super(MountS3, self).__init__(output=output, **kwargs)
+        super(MountS3, self).__init__(output=True, **kwargs)
         # load from config
         if s3_path.startswith('/'):
             raise NotImplementedError('Local dir cannot be absolute')
@@ -174,13 +170,7 @@ class MountS3(Mount):
             # so EC2Mode knows to simply sync /doodad
             # (this is b/c we no longer pass in mounts to the launch mode)
             self.sync_dir = os.path.join('/doodad', s3_path)
-        self.output = output
-        self.sync_interval = sync_interval
-        self.sync_on_terminate = True
-        self.dry = dry
-        self.include_types = include_types
         self._name = self.sync_dir.replace('/', '_')
-        assert output
 
     def dar_build_archive(self, deps_dir):
         return
@@ -192,20 +182,14 @@ class MountS3(Mount):
 class MountGCP(Mount):
     def __init__(self,
                 gcp_path=None,
-                sync_interval=15,
-                output=True,
-                dry=False,
-                exclude_regex='*.tmp',
                 **kwargs):
         """
 
         Args:
-            zone (str): Zone name. i.e. 'us-west1-a'
-            gcp_bucket (str): Bucket name
             gcp_path (str): Path underneath bucket. The full path will become
                 gs://{gcp_bucket}/{gcp_path}
         """
-        super(MountGCP, self).__init__(output=output, **kwargs)
+        super(MountGCP, self).__init__(output=True, **kwargs)
         # load from config
         if gcp_path.startswith('/'):
             raise NotImplementedError('Local dir cannot be absolute')
@@ -214,13 +198,7 @@ class MountGCP(Mount):
             # so GCPMode knows to simply sync /doodad
             # (this is b/c we no longer pass in mounts to the launch mode)
             self.sync_dir = os.path.join('/doodad', gcp_path)
-        self.output = output
-        self.sync_interval = sync_interval
-        self.sync_on_terminate = True
-        self.exclude_string = '"'+exclude_regex+'"'
         self._name = self.sync_dir.replace('/', '_')
-        self.dry = dry
-        assert output
 
     def dar_build_archive(self, deps_dir):
         return
@@ -232,28 +210,19 @@ class MountGCP(Mount):
 class MountAzure(Mount):
     def __init__(self,
                  azure_path=None,
-                 output=True,
-                 dry=False,
-                 exclude_regex='*.tmp',
                  **kwargs):
         """
         Args:
-            zone (str): Zone name. i.e. 'us-west1-a'
+            azure_path (str): Path to mount in the synced Azure container. This will become /doodad/{log_path}/{azure_path},
+                where log_path comes from AzureMode launch argument.
         """
-        super(MountAzure, self).__init__(output=output, **kwargs)
+        super(MountAzure, self).__init__(output=True, **kwargs)
         # load from config
         if azure_path.startswith('/'):
             raise NotImplementedError('Local dir cannot be absolute')
         else:
-            # We store everything into a fixed dir /doodad on the remote machine
-            # so MountAzure knows to simply sync /doodad
             self.sync_dir = os.path.join('/doodad', azure_path)
-        self.output = output
-        self.sync_on_terminate = True
-        self.exclude_string = '"'+exclude_regex+'"'
         self._name = self.sync_dir.replace('/', '_')
-        self.dry = dry
-        assert output
 
     def dar_build_archive(self, deps_dir):
         return
