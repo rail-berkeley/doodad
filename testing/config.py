@@ -1,0 +1,12 @@
+import os
+
+GCP_BUCKET = os.environ['GCP_BUCKET']
+GCP_PROJECT = os.environ['GCP_PROJECT']
+GCP_IMAGE = os.environ['GCP_IMAGE']
+S3_BUCKET = os.environ['S3_BUCKET']
+AZ_SUB_ID = os.environ['AZURE_SUBSCRIPTION_ID']
+AZ_CLIENT_ID = os.environ['AZURE_CLIENT_ID']
+AZ_TENANT_ID = os.environ['AZURE_TENANT_ID']
+AZ_SECRET = os.environ['AZURE_CLIENT_SECRET']
+AZ_CONTAINER = os.environ['AZURE_STORAGE_CONTAINER']
+AZ_CONN_STR = os.environ['AZURE_STORAGE_CONNECTION_STRING']
