@@ -566,7 +566,7 @@ class AzureMode(LaunchMode):
             region (str): Azure compute zone
             instance_type( (str): VM instance size
             num_gpu (int): No of the GPUs. See GPU_INSTANCE_DICT in https://github.com/rail-berkeley/doodad/blob/master/doodad/apis/azure_util.py
-            gpu_model (str): GPU model. See https://cloud.google.com/compute/docs/gpus. GCP names are translated behind the scene into Azure instance names.
+            gpu_model (str): GPU model. See https://cloud.google.com/compute/docs/gpus. GCP names are translated into Azure instance size names.
             num_vcpu (int): Specifies the number of vCPU for GPU instance
             promo_price (bool): Use promo price if available
             spot_price (float): Maximal price for preemptible instance. Specify -1 for the no limit price for the spot instance.
@@ -606,7 +606,6 @@ class AzureMode(LaunchMode):
         self.region = region
         self.instance_type = instance_type
         self.spot_max_price = spot_price
-        self.compute = googleapiclient.discovery.build('compute', 'v1')
 
         self.connection_str = azure_storage_connection_str
         self.connection_info = dict([k.split('=', 1) for k in self.connection_str.split(';')])
