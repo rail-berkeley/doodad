@@ -22,11 +22,14 @@ from doodad.utils import cmd_builder
 
 THIS_FILE_DIR = os.path.dirname(__file__)
 MAKESELF_PATH = os.path.join(THIS_FILE_DIR, 'makeself.sh')
+MAKESELF_ARGS = ''
+if shutil.which('pigz') is not None:
+    MAKESELF_ARGS = '--pigz'
 MAKESELF_HEADER_PATH = os.path.join(THIS_FILE_DIR, 'makeself-header.sh')
 BEGIN_HEADER = '--- BEGIN DAR OUTPUT ---'
 DAR_PAYLOAD_MOUNT = 'dar_payload'
 
-def build_archive(archive_filename='runfile.dar', 
+def build_archive(archive_filename='runfile.dar',
                   docker_image='ubuntu:18.04',
                   payload_script='',
                   mounts=(),
@@ -124,9 +127,10 @@ def write_run_script(arch_dir, mounts, payload_script, verbose=False):
     os.chmod(runfile, 0o777)
 
 def compile_archive(archive_dir, output_file, verbose=False):
-    compile_cmd = "{mkspath} --nocrc --nomd5 --header {mkhpath} {archive_dir} {output_file} {name} {run_script}"
+    compile_cmd = "{mkspath} {mksargs} --nocrc --nomd5 --header {mkhpath} {archive_dir} {output_file} {name} {run_script}"
     compile_cmd = compile_cmd.format(
         mkspath=MAKESELF_PATH,
+        mksargs=MAKESELF_ARGS,
         mkhpath=MAKESELF_HEADER_PATH,
         name='DAR',
         archive_dir=archive_dir,
@@ -135,7 +139,6 @@ def compile_archive(archive_dir, output_file, verbose=False):
     )
     pipe = subprocess.PIPE
     p = subprocess.Popen(compile_cmd, shell=True, stdout=pipe, stderr=pipe)
-    p.wait()
     p.communicate()
     os.chmod(output_file, 0o777)
 
