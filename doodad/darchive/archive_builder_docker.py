@@ -22,13 +22,9 @@ from doodad.utils import cmd_builder
 
 THIS_FILE_DIR = os.path.dirname(__file__)
 MAKESELF_PATH = os.path.join(THIS_FILE_DIR, 'makeself.sh')
-try:
-    # use pigz to parallelize if possible
-    p = subprocess.Popen(['pigz'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    p.communicate()
+MAKESELF_ARGS = ''
+if shutil.which('pigz') is not None:
     MAKESELF_ARGS = '--pigz'
-except FileNotFoundError:
-    MAKESELF_ARGS = ''
 MAKESELF_HEADER_PATH = os.path.join(THIS_FILE_DIR, 'makeself-header.sh')
 BEGIN_HEADER = '--- BEGIN DAR OUTPUT ---'
 DAR_PAYLOAD_MOUNT = 'dar_payload'
