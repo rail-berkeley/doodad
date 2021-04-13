@@ -55,7 +55,36 @@ class MountLocal(Mount):
     def __init__(self, local_dir, mount_point=None, cleanup=True,
                 filter_ext=('.pyc', '.log', '.git', '.mp4'),
                 filter_dir=('data', '.git'),
+                delete_before_mount=True,
                 **kwargs):
+        """
+
+        :param local_dir:
+        :param mount_point:
+        :param cleanup:
+        :param filter_ext:
+        :param filter_dir:
+        :param delete_before_mount: If True, then if you mount to an existing
+        directory, then the contents of that directory will be deleted before
+        mounting. In other words, the behavior is
+        ```
+        $ rm -rf mount_point
+        $ mv local_dir mount_point
+        ```
+        Default is True because this follows standard mounting behavior, in
+        which the original mount point is invisible if it existed.
+
+        If False, then the contents of local_dir are copied to the mount_point,
+        with individual files being overwritten but not necessarily the entire
+        directory. In other words, the behavior is
+        ```
+        $ mv local_dir/* mount_point/*
+        ```
+        So, existing files in `mount_point/` will not change unless they are
+        overwritten by corresponding files in `local_dir/`.
+
+        :param kwargs:
+        """
         super(MountLocal, self).__init__(mount_point=mount_point, **kwargs)
         self.local_dir = os.path.realpath(os.path.expanduser(local_dir))
         self._name = self.local_dir.replace('/', '_')
@@ -63,6 +92,7 @@ class MountLocal(Mount):
         self.cleanup = cleanup
         self.filter_ext = filter_ext
         self.filter_dir = filter_dir
+        self.delete_before_mount = delete_before_mount
         if mount_point is None:
             self.mount_point = self.local_dir
         else:
@@ -86,7 +116,7 @@ class MountLocal(Mount):
         utils.makedirs(os.path.join(deps_dir, 'local'))
         dep_dir = os.path.join(deps_dir, 'local', self.name)
         extract_file = os.path.join(dep_dir, 'extract.sh')
-        mount_point = os.path.dirname(self.mount_point)
+        mount_dir = os.path.dirname(self.mount_point)
 
         if self.read_only:
             shutil.copytree(self.local_dir, dep_dir, ignore=self.ignore_patterns)
@@ -94,12 +124,15 @@ class MountLocal(Mount):
             os.makedirs(dep_dir)
         with open(extract_file, 'w') as f:
             if self.read_only:
-                f.write('mkdir -p %s\n' % mount_point)
-                f.write('mv ./deps/local/{name} {mount}\n'.format(name=self.name, mount=self.mount_point))
+                f.write('mkdir -p %s\n' % mount_dir)
+                if self.delete_before_mount:
+                    f.write('rm -rf  {mount}\n'.format(mount=self.mount_point))
+                    f.write('mkdir -p %s\n' % self.mount_point)
+                f.write('mv ./deps/local/{name}/* {mount}/\n'.format(name=self.name, mount=self.mount_point))
             else:
-                f.write('mkdir -p %s\n' % mount_point)
+                f.write('mkdir -p %s\n' % mount_dir)
             if self.pythonpath:
-                f.write('export PYTHONPATH=$PYTHONPATH:{repo_dir}\n'.format(repo_dir=mount_point))
+                f.write('export PYTHONPATH=$PYTHONPATH:{mount_dir}\n'.format(mount_dir=mount_dir))
         os.chmod(extract_file, 0o777)
 
     def dar_extract_command(self):
