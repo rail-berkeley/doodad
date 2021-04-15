@@ -6,36 +6,85 @@ args = {
 'param2': [1,5,10,20],
 }
 
-run_sweep_parallel(func, args)
+run_sweep_parallel(path_to_script, args)
 
 or
 
-run_sweep_serial(func, args)
+run_sweep_serial(path_to_script, args)
 
 """
-import math
-import os
+import copy
 import itertools
-import multiprocessing
+import os
 import random
-from datetime import datetime
-import hashlib
-import doodad
+
 from doodad import mount
-from doodad.launch import launch_api
 from doodad.darchive import archive_builder_docker as archive_builder
+from doodad.launch import launch_api
+from doodad.wrappers.sweeper import pythonplusplus as ppp
 
 
 class Sweeper(object):
-    def __init__(self, hyper_config):
-        self.hyper_config = hyper_config
+    """
+    Do a grid search over hyperparameters based on a predefined set of
+    hyperparameters.
+    """
+    def __init__(self, hyperparameters, default_parameters=None):
+        """
+
+        :param hyperparameters: A dictionary of the form
+        ```
+        {
+            'hp_1': [value1, value2, value3],
+            'hp_2': [value1, value2, value3],
+            ...
+        }
+        ```
+        This format is like the param_grid in SciKit-Learn:
+        http://scikit-learn.org/stable/modules/grid_search.html#exhaustive-grid-search
+        :param default_parameters: Default key-value pairs to add to generated
+        config.
+
+        Keys with periods in them are converted into nested dictionaries. I.e.
+        ```
+        {
+            'module1.hp1': [value1, value2, value3],
+        }
+        ```
+        will yield a config of the form
+        ```
+        {
+            'module1': {
+                'hp1': value1,
+            }
+        }
+        ```
+        """
+        self._hyperparameters = hyperparameters
+        self._default_kwargs = default_parameters or {}
+        named_hyperparameters = []
+        for name, values in self._hyperparameters.items():
+            named_hyperparameters.append(
+                [(name, v) for v in values]
+            )
+        self._hyperparameters_dicts = [
+            ppp.dot_map_dict_to_nested_dict(dict(tuple_list))
+            for tuple_list in itertools.product(*named_hyperparameters)
+        ]
 
     def __iter__(self):
-        count = 0
-        for config in itertools.product(*[val for val in self.hyper_config.values()]):
-            kwargs = {key:config[i] for i, key in enumerate(self.hyper_config.keys())}
-            count += 1
-            yield kwargs
+        """
+        Iterate over the hyperparameters in a grid-manner.
+
+        :return: List of dictionaries. Each dictionary is a map from name to
+        hyperpameter.
+        """
+        for hyperparameters in self._hyperparameters_dicts:
+            yield ppp.merge_recursive_dicts(
+                hyperparameters,
+                copy.deepcopy(self._default_kwargs),
+                ignore_duplicate_keys_in_second_dict=True,
+            )
 
 
 def chunker(sweeper, num_chunks=10, confirm=True):
@@ -60,8 +109,13 @@ def chunker(sweeper, num_chunks=10, confirm=True):
         return []
 
 
-def run_sweep_doodad(target, params, run_mode, mounts, test_one=False, docker_image='python:3', return_output=False, verbose=False):
-
+def run_sweep_doodad(
+        target, params, run_mode, mounts, test_one=False,
+        docker_image='python:3', return_output=False, verbose=False,
+        command_suffix=None,
+        postprocess_config=lambda x: x,
+        default_params=None
+):
     # build archive
     target_dir = os.path.dirname(target)
     target_mount_dir = os.path.join('target', os.path.basename(target_dir))
@@ -83,11 +137,16 @@ def run_sweep_doodad(target, params, run_mode, mounts, test_one=False, docker_im
                                                 use_nvidia_docker=run_mode.use_gpu,
                                                 mounts=mounts)
 
-        sweeper = Sweeper(params)
+        sweeper = Sweeper(params, default_params)
         for config in sweeper:
+            config = postprocess_config(config)
+            if config is None:
+                continue
             njobs += 1
             cli_args= ' '.join(['--%s %s' % (key, config[key]) for key in config])
             cmd = archive + ' -- ' + cli_args
+            if command_suffix is not None:
+               cmd += command_suffix
             result = run_mode.run_script(cmd, return_output=return_output, verbose=False)
             if return_output:
                 result = archive_builder._strip_stdout(result)
