@@ -590,6 +590,7 @@ class AzureMode(LaunchMode):
                  num_vcpu='default',
                  promo_price=True,
                  spot_price=-1,
+                 tags=None,
                  **kwargs):
         super(AzureMode, self).__init__(**kwargs)
         self.subscription_id = azure_subscription_id
@@ -606,6 +607,21 @@ class AzureMode(LaunchMode):
         self.region = region
         self.instance_type = instance_type
         self.spot_max_price = spot_price
+        if tags is None:
+            from os import environ, getcwd
+            getUser = lambda: environ["USERNAME"] if "C:" in getcwd() else environ[
+                "USER"]
+            user = getUser()
+            tags = {
+                'user': user,
+                'log_path': log_path,
+            }
+        if 'user' not in tags:
+            raise ValueError("""
+            Please set `user` in tags (tags = {'user': 'NAME'}) so that we keep
+            track of who is running which experiment.
+            """)
+        self.tags = tags
 
         self.connection_str = azure_storage_connection_str
         self.connection_info = dict([k.split('=', 1) for k in self.connection_str.split(';')])
@@ -723,6 +739,7 @@ class AzureMode(LaunchMode):
         )
         resource_group_params = {
             'location': region,
+            'tags': self.tags,
         }
         resource_group = resource_group_client.resource_groups.create_or_update(
             azure_resource_group,
@@ -830,9 +847,7 @@ class AzureMode(LaunchMode):
                         'id': nic.id
                     }]
                 },
-                'tags': {
-                    'log_path': self.log_path,
-                },
+                'tags': self.tags,
                 'identity': params_identity,
             }
             if self.preemptible:

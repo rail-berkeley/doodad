@@ -78,7 +78,7 @@ def run_sweep_doodad(target, params, run_mode, mounts, test_one=False, docker_im
     with archive_builder.temp_archive_file() as archive_file:
         archive = archive_builder.build_archive(archive_filename=archive_file,
                                                 payload_script=command,
-                                                verbose=verbose, 
+                                                verbose=verbose,
                                                 docker_image=docker_image,
                                                 use_nvidia_docker=run_mode.use_gpu,
                                                 mounts=mounts)
@@ -116,7 +116,7 @@ def run_sweep_doodad_chunked(target, params, run_mode, mounts, num_chunks=10, do
     with archive_builder.temp_archive_file() as archive_file:
         archive = archive_builder.build_archive(archive_filename=archive_file,
                                                 payload_script=command,
-                                                verbose=verbose, 
+                                                verbose=verbose,
                                                 docker_image=docker_image,
                                                 use_nvidia_docker=run_mode.use_gpu,
                                                 mounts=mounts)
