@@ -15,7 +15,7 @@ if __name__ == "__main__":
         doodad_config.extra_launch_info['slurm-job-id'] = os.environ.get(
             'SLURM_JOB_ID', None
         )
-    if run_mode and (run_mode == 'ec2' or run_mode == 'gcp'):
+    if run_mode and (run_mode in {'ec2', 'gcp', 'azure'}):
         if run_mode == 'ec2':
             try:
                 import urllib.request

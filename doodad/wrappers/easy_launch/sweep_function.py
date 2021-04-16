@@ -44,7 +44,7 @@ def sweep_function(
     if add_date_to_logname:
         datestamp = time.strftime("%y-%m-%d")
         log_path = '%s_%s' % (datestamp, log_path)
-    target = osp.join(REPO_DIR, 'doodad/easy_launch/run_experiment.py')
+    target = osp.join(REPO_DIR, 'doodad/wrappers/easy_launch/run_experiment.py')
     sweeper, output_mount = _create_sweeper_and_output_mount()
     git_infos = metadata.generate_git_infos()
 
@@ -55,6 +55,7 @@ def sweep_function(
         script_name=' '.join(sys.argv),
         extra_launch_info={},
     )
+
     def postprocess_config(variant):
         args = {
             'method_call': method_call,
@@ -64,33 +65,15 @@ def sweep_function(
             'mode': mode,
         }
         args_encoded, cp_version = arg_parse.encode_args(args, cloudpickle=use_cloudpickle)
-        # python_cmd = '{ad_header}={args_data} {use_cp_header}={use_cp} {cp_version_header}={cp_version} python'.format(
-        #     ad_header=arg_parse.ARGS_DATA,
-        #     args_data=args_encoded,
-        #     use_cp_header=arg_parse.USE_CLOUDPICKLE,
-        #     use_cp=str(int(use_cloudpickle)),
-        #     cp_version_header=arg_parse.CLOUDPICKLE_VERSION,
-        #     cp_version=cp_version,
-        # )
         new_config = {
             arg_parse.ARGS_DATA: args_encoded,
             arg_parse.USE_CLOUDPICKLE: str(int(use_cloudpickle)),
             arg_parse.CLOUDPICKLE_VERSION :cp_version,
         }
         return new_config
-    # args_encoded, cp_version = arg_parse.encode_args(args, cloudpickle=use_cloudpickle)
-    # python_cmd = '{ad_header}={args_data} {use_cp_header}={use_cp} {cp_version_header}={cp_version} python'.format(
-    #     ad_header=arg_parse.ARGS_DATA,
-    #     args_data=args_encoded,
-    #     use_cp_header=arg_parse.USE_CLOUDPICKLE,
-    #     use_cp=str(int(use_cloudpickle)),
-    #     cp_version_header=arg_parse.CLOUDPICKLE_VERSION,
-    #     cp_version=cp_version,
-    # )
     sweeper.run_sweep_azure(
         target, params, log_path=log_path,
         add_date_to_logname=False,
-        # python_cmd=python_cmd,
         postprocess_config=postprocess_config,
     )
 
@@ -150,4 +133,4 @@ if __name__ == '__main__':
         'x': [1],
         'y': [3],
     }
-    sweep_function(foo, params, log_path='test_sweep_function_with_test_from_output')
+    sweep_function(foo, params, log_path='test_sweep_function_add_azure_mode')
