@@ -162,4 +162,4 @@ if __name__ == '__main__':
         'x': [1,2],
         'y': [3],
     }
-    sweep_function(foo, params, log_path='no_doodad_dep_in_run_experiment_no_azure_path_in_mount_print_args_dict')
+    sweep_function(foo, params, log_path='exp_12_safe_import')

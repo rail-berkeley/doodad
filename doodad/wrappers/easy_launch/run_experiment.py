@@ -5,7 +5,6 @@ on doodad.
 import pickle
 import base64
 import argparse
-import os
 
 
 ARGS_DATA = 'DOODAD_ARGS_DATA'
@@ -13,42 +12,26 @@ USE_CLOUDPICKLE = 'DOODAD_USE_CLOUDPICKLE'
 CLOUDPICKLE_VERSION = 'DOODAD_CLOUDPICKLE_VERSION'
 
 
-__ARGS = None
-
-
-def __get_arg_config():
-    """
-    global __ARGS
-    if __ARGS is not None:
-        return __ARGS
+def _get_args_dict():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--use_cloudpickle', type=bool, default=False)
+    parser.add_argument('--'+USE_CLOUDPICKLE, type=bool, default=False)
     parser.add_argument('--'+ARGS_DATA, type=str, default='')
-    parser.add_argument('--output_dir', type=str, default='/tmp/expt/')
+    parser.add_argument('--'+CLOUDPICKLE_VERSION, type=str, default='')
     args = parser.parse_args()
-    __ARGS = args
-    """
-    args_data = os.environ.get(ARGS_DATA, {})
-    cloudpickle_version = os.environ.get(CLOUDPICKLE_VERSION, 'n/a')
-    use_cloudpickle = bool(int(os.environ.get(USE_CLOUDPICKLE, '0')))
 
-    args = lambda : None # hack - use function as namespace
-    args.args_data = args_data
-    args.use_cloudpickle = use_cloudpickle
-    args.cloudpickle_version = cloudpickle_version
-    return args
+    return vars(args)
 
 
 def get_args(key=None, default=None):
-    args = __get_arg_config()
+    args = _get_args_dict()
 
-    if args.args_data:
-        if args.use_cloudpickle:
+    if args[ARGS_DATA]:
+        if args[USE_CLOUDPICKLE]:
             import cloudpickle
-            assert args.cloudpickle_version == cloudpickle.__version__, "Cloudpickle versions do not match! (host) %s vs (remote) %s" % (args.cloudpickle_version, cloudpickle.__version__)
-            data = cloudpickle.loads(base64.b64decode(args.args_data))
+            assert args[CLOUDPICKLE_VERSION] == cloudpickle.__version__, "Cloudpickle versions do not match! (host) %s vs (remote) %s" % (args[CLOUDPICKLE_VERSION], cloudpickle.__version__)
+            data = cloudpickle.loads(base64.b64decode(args[ARGS_DATA]))
         else:
-            data = pickle.loads(base64.b64decode(args.args_data))
+            data = pickle.loads(base64.b64decode(args[ARGS_DATA]))
     else:
         data = {}
 

@@ -113,22 +113,26 @@ query_metadata() {
         sudo docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi
     fi
 
-    echo "test before script" >> /home/doodad/test_before_script.txt
-    cp /home/doodad/* /doodad_tmp/$doodad_log_path/
 
     # Run the script
     cp /doodad_tmp/$remote_script_path /tmp/remote_script.sh
-    echo $shell_interpreter /tmp/remote_script.sh $remote_script_args
-    $shell_interpreter /tmp/remote_script.sh $remote_script_args
-
-    # Sync std out/err
+    echo 'RUNNING: ' $shell_interpreter /tmp/remote_script.sh $remote_script_args
+    # Sync std out/err right before running script. Useful to debug non-script
+    # related crashes
     mkdir -p /doodad_tmp/$doodad_log_path/azure_instance_output/
     cp /home/doodad/* /doodad_tmp/$doodad_log_path/azure_instance_output/
+    $shell_interpreter /tmp/remote_script.sh $remote_script_args
+
+    # Sync std out/err after running script. Useful to debug script related
+    # crashes
+    cp /home/doodad/* /doodad_tmp/$doodad_log_path/azure_instance_output/
+
     if [ $terminate_on_end = true ];then
       # Delete everything!
       echo "Finished experiment. Terminating"
       az group delete -y --no-wait --name $resource_group
     fi
 } >> /home/doodad/user_data.log 2>&1
-# Sync std out/err again
+
+# Sync std out/err after everything in case there's some termination errors
 cp /home/doodad/* /doodad_tmp/$doodad_log_path/azure_instance_output/

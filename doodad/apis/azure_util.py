@@ -1,9 +1,9 @@
 import os
-import azure
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 
-from doodad.utils import hash_file, REPO_DIR, safe_import
-#storage = safe_import.try_import('google.cloud.storage')
+from doodad.utils import REPO_DIR, safe_import
+
+blob = safe_import.try_import('azure.storage.blob')
+azure = safe_import.try_import('azure')
 
 AZURE_STARTUP_SCRIPT_PATH = os.path.join(REPO_DIR, "scripts/azure/azure_startup_script.sh")
 AZURE_SHUTDOWN_SCRIPT_PATH = os.path.join(REPO_DIR, "scripts/azure/azure_shutdown_script.sh")
@@ -24,7 +24,7 @@ def upload_file_to_azure_storage(
     remote_path = 'doodad/mount/' + remote_filename
 
     if not dry:
-        blob_service_client = BlobServiceClient.from_connection_string(connection_str)
+        blob_service_client = blob.BlobServiceClient.from_connection_string(connection_str)
         blob_client = blob_service_client.get_blob_client(container=container_name, blob=remote_path)
         if check_exists:
             try:
