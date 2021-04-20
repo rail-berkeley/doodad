@@ -676,12 +676,12 @@ class AzureMode(LaunchMode):
                 'shell_interpreter': self.shell_interpreter,
                 'azure_container_path': self.log_path,
                 'remote_script_path': remote_script,
+                'remote_script_args': script_args,
                 'container_name': self.azure_container,
                 'terminate': json.dumps(self.terminate_on_end),
                 'use_gpu': json.dumps(self.use_gpu),
-                'script_args': script_args,
-                'startup-script': start_script,
-                'shutdown-script': stop_script,
+                'startup_script': start_script,
+                'shutdown_script': stop_script,
                 'region': region
             }
             success, instance_info = self.create_instance(metadata, verbose=verbose)
@@ -799,14 +799,16 @@ class AzureMode(LaunchMode):
             )
             nic = poller.result()
 
-            with open(azure_util.AZURE_STARTUP_SCRIPT_PATH, mode='r') as f:
-                startup_script_str = f.read()
+            startup_script_str = metadata['startup_script']
+            # TODO: how do we use this shutdown script?
+            shutdown_script_str = metadata['shutdown_script']
             for old, new in [
                 ('DOODAD_LOG_PATH', self.log_path),
                 ('DOODAD_STORAGE_ACCOUNT_NAME', self.connection_info['AccountName']),
                 ('DOODAD_STORAGE_ACCOUNT_KEY', self.connection_info['AccountKey']),
                 ('DOODAD_CONTAINER_NAME', self.azure_container),
                 ('DOODAD_REMOTE_SCRIPT_PATH', metadata['remote_script_path']),
+                ('DOODAD_REMOTE_SCRIPT_ARGS', metadata['remote_script_args']),
                 ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
                 ('DOODAD_TERMINATE_ON_END', metadata['terminate']),
                 ('DOODAD_USE_GPU', metadata['use_gpu'])
