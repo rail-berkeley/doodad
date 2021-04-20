@@ -14,7 +14,7 @@ query_metadata() {
     account_key=DOODAD_STORAGE_ACCOUNT_KEY
     container_name=DOODAD_CONTAINER_NAME
     remote_script_path=DOODAD_REMOTE_SCRIPT_PATH
-    remote_script_args=DOODAD_REMOTE_SCRIPT_ARGS
+    remote_script_args='DOODAD_REMOTE_SCRIPT_ARGS'
     shell_interpreter=DOODAD_SHELL_INTERPRETER
     terminate_on_end=DOODAD_TERMINATE_ON_END
     use_gpu=DOODAD_USE_GPU
@@ -118,19 +118,17 @@ query_metadata() {
 
     # Run the script
     cp /doodad_tmp/$remote_script_path /tmp/remote_script.sh
+    echo $shell_interpreter /tmp/remote_script.sh $remote_script_args
     $shell_interpreter /tmp/remote_script.sh $remote_script_args
 
-    echo "test before_terminate" >> /home/doodad/test_before_terminate.txt
-    cp /home/doodad/* /doodad_tmp/$doodad_log_path/
-
+    # Sync std out/err
+    mkdir -p /doodad_tmp/$doodad_log_path/azure_instance_output/
+    cp /home/doodad/* /doodad_tmp/$doodad_log_path/azure_instance_output/
     if [ $terminate_on_end = true ];then
       # Delete everything!
       echo "Finished experiment. Terminating"
       az group delete -y --no-wait --name $resource_group
     fi
-    echo "test after terminate" >> /home/doodad/test_after_terminate.txt
-    cp /home/doodad/* /doodad_tmp/$doodad_log_path/
-
 } >> /home/doodad/user_data.log 2>&1
-echo "outside of bracket" >> /home/doodad/test_outside_of_bracket.txt
-cp /home/doodad/* /doodad_tmp/$doodad_log_path/
+# Sync std out/err again
+cp /home/doodad/* /doodad_tmp/$doodad_log_path/azure_instance_output/

@@ -2,10 +2,11 @@ import sys
 import time
 import os.path as osp
 
+from doodad import mode as ddmode
 from doodad.utils import REPO_DIR
 
 import doodad
-from doodad.wrappers.easy_launch import arg_parse, metadata
+from doodad.wrappers.easy_launch import run_experiment, metadata
 from doodad.wrappers.easy_launch.config_private import AZ_SUB_ID, AZ_CLIENT_ID, AZ_TENANT_ID, AZ_SECRET, AZ_CONN_STR, AZ_CONTAINER, CODE_DIRS_TO_MOUNT, NON_CODE_DIRS_TO_MOUNT
 from doodad.wrappers.sweeper import DoodadSweeper
 
@@ -19,6 +20,8 @@ def sweep_function(
         mode='azure',
         use_gpu=False,
         gpu_id=0,
+        name_runs_by_id=True,
+        start_run_id=0
 ):
     """
     Usage:
@@ -39,7 +42,19 @@ def sweep_function(
     :param method_call: A function
     :param params:
     :param log_path:
-    :return:
+    :param name_runs_by_id: If true, then each run will be in its own
+    ```
+    sub-directory to create a structure of
+        log_path/
+            run0/
+            run1/
+            run2/
+            ...
+    ```
+    otherwise, all the runs will be saved to `log_path/` directly (possibly with
+    some collision-logic that's mode-dependent).
+    :param start_run_id:
+    :return: How many
     """
     if add_date_to_logname:
         datestamp = time.strftime("%y-%m-%d")
@@ -56,25 +71,37 @@ def sweep_function(
         extra_launch_info={},
     )
 
-    def postprocess_config(variant):
+    def postprocess_config_and_run_mode(config, run_mode, config_idx):
+        if name_runs_by_id:
+            path_suffix = '/run{}'.format(start_run_id + config_idx)
+        else:
+            path_suffix = ''
+        new_log_path = log_path + path_suffix
         args = {
             'method_call': method_call,
-            'output_dir': '/output/{}'.format(log_path),
+            'output_dir': '{}/{}'.format(output_mount.mount_point, new_log_path),
             'doodad_config': doodad_config,
-            'variant': variant,
+            'variant': config,
             'mode': mode,
         }
-        args_encoded, cp_version = arg_parse.encode_args(args, cloudpickle=use_cloudpickle)
+        args_encoded, cp_version = run_experiment.encode_args(args, cloudpickle=use_cloudpickle)
         new_config = {
-            arg_parse.ARGS_DATA: args_encoded,
-            arg_parse.USE_CLOUDPICKLE: str(int(use_cloudpickle)),
-            arg_parse.CLOUDPICKLE_VERSION :cp_version,
+            run_experiment.ARGS_DATA: args_encoded,
+            run_experiment.USE_CLOUDPICKLE: str(int(use_cloudpickle)),
+            run_experiment.CLOUDPICKLE_VERSION :cp_version,
         }
-        return new_config
+        if isinstance(run_mode, ddmode.AzureMode):
+            run_mode.log_path = new_log_path
+        if isinstance(run_mode, ddmode.GCPMode):
+            run_mode.gcp_log_path = new_log_path
+        if isinstance(run_mode, ddmode.EC2Mode):
+            run_mode.s3_log_path = new_log_path
+        return new_config, run_mode
+
     sweeper.run_sweep_azure(
         target, params, log_path=log_path,
         add_date_to_logname=False,
-        postprocess_config=postprocess_config,
+        postprocess_config_and_run_mode=postprocess_config_and_run_mode,
     )
 
 
@@ -83,6 +110,8 @@ def _create_mounts():
         doodad.MountLocal(**non_code_mapping)
         for non_code_mapping in NON_CODE_DIRS_TO_MOUNT
     ]
+    if REPO_DIR not in CODE_DIRS_TO_MOUNT:
+        CODE_DIRS_TO_MOUNT.append(REPO_DIR)
     CODE_MOUNTS = [
         doodad.MountLocal(local_dir=code_dir, pythonpath=True)
         for code_dir in CODE_DIRS_TO_MOUNT
@@ -94,7 +123,7 @@ def _create_mounts():
 def _create_sweeper_and_output_mount():
     mounts = _create_mounts()
     az_mount = doodad.MountAzure(
-        'azure_script_output',
+        '',
         mount_point='/output',
     )
     sweeper = DoodadSweeper(
@@ -123,14 +152,14 @@ def foo(doodad_config, variant):
         f.write('sum = %f' % x + y)
 
     import sys
-    with open('/output/test_from_doodad', "a") as f:
+    with open('/output/from_script_test_from_doodad', "a") as f:
         f.write("this is a test. argv = {}\n".format(sys.argv))
         f.write("variant = {}".format(str(variant)))
 
 
 if __name__ == '__main__':
     params = {
-        'x': [1],
+        'x': [1,2],
         'y': [3],
     }
-    sweep_function(foo, params, log_path='test_sweep_function_add_azure_mode')
+    sweep_function(foo, params, log_path='no_doodad_dep_in_run_experiment_no_azure_path_in_mount_print_args_dict')

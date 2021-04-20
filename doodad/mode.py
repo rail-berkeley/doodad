@@ -601,7 +601,7 @@ class AzureMode(LaunchMode):
         self.azure_client_id = azure_client_id
         self.azure_authentication_key = azure_authentication_key
         self.azure_tenant_id = azure_tenant_id
-        self.log_path = log_path
+        self._log_path = log_path
         self.terminate_on_end = terminate_on_end
         self.preemptible = preemptible
         self.region = region
@@ -628,6 +628,15 @@ class AzureMode(LaunchMode):
 
         if self.use_gpu:
             self.instance_type = azure_util.get_gpu_type_instance(gpu_model, num_gpu, num_vcpu, promo_price)
+
+    @property
+    def log_path(self):
+        return self._log_path
+
+    @log_path.setter
+    def log_path(self, value):
+        self._log_path = value
+        self.tags['log_path'] = value
 
     def __str__(self):
         return 'Azure-%s-%s' % (self.azure_resource_group_base, self.instance_type)

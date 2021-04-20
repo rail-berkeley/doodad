@@ -112,8 +112,7 @@ def chunker(sweeper, num_chunks=10, confirm=True):
 def run_sweep_doodad(
         target, params, run_mode, mounts, test_one=False,
         docker_image='python:3', return_output=False, verbose=False,
-        command_suffix=None,
-        postprocess_config=lambda x: x,
+        postprocess_config_and_run_mode=lambda config, run_mode, idx: (config, run_mode),
         default_params=None
 ):
     # build archive
@@ -139,14 +138,12 @@ def run_sweep_doodad(
 
         sweeper = Sweeper(params, default_params)
         for config in sweeper:
-            config = postprocess_config(config)
+            config, run_mode = postprocess_config_and_run_mode(config, run_mode, njobs)
             if config is None:
                 continue
             njobs += 1
             cli_args= ' '.join(['--%s %s' % (key, config[key]) for key in config])
             cmd = archive + ' -- ' + cli_args
-            if command_suffix is not None:
-               cmd += command_suffix
             result = run_mode.run_script(cmd, return_output=return_output, verbose=False)
             if return_output:
                 result = archive_builder._strip_stdout(result)
