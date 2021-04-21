@@ -590,6 +590,7 @@ class AzureMode(LaunchMode):
                  num_vcpu='default',
                  promo_price=True,
                  spot_price=-1,
+                 tags=None,
                  **kwargs):
         super(AzureMode, self).__init__(**kwargs)
         self.subscription_id = azure_subscription_id
@@ -600,18 +601,42 @@ class AzureMode(LaunchMode):
         self.azure_client_id = azure_client_id
         self.azure_authentication_key = azure_authentication_key
         self.azure_tenant_id = azure_tenant_id
-        self.log_path = log_path
+        self._log_path = log_path
         self.terminate_on_end = terminate_on_end
         self.preemptible = preemptible
         self.region = region
         self.instance_type = instance_type
         self.spot_max_price = spot_price
+        if tags is None:
+            from os import environ, getcwd
+            getUser = lambda: environ["USERNAME"] if "C:" in getcwd() else environ[
+                "USER"]
+            user = getUser()
+            tags = {
+                'user': user,
+                'log_path': log_path,
+            }
+        if 'user' not in tags:
+            raise ValueError("""
+            Please set `user` in tags (tags = {'user': 'NAME'}) so that we keep
+            track of who is running which experiment.
+            """)
+        self.tags = tags
 
         self.connection_str = azure_storage_connection_str
         self.connection_info = dict([k.split('=', 1) for k in self.connection_str.split(';')])
 
         if self.use_gpu:
             self.instance_type = azure_util.get_gpu_type_instance(gpu_model, num_gpu, num_vcpu, promo_price)
+
+    @property
+    def log_path(self):
+        return self._log_path
+
+    @log_path.setter
+    def log_path(self, value):
+        self._log_path = value
+        self.tags['log_path'] = value
 
     def __str__(self):
         return 'Azure-%s-%s' % (self.azure_resource_group_base, self.instance_type)
@@ -660,12 +685,12 @@ class AzureMode(LaunchMode):
                 'shell_interpreter': self.shell_interpreter,
                 'azure_container_path': self.log_path,
                 'remote_script_path': remote_script,
+                'remote_script_args': script_args,
                 'container_name': self.azure_container,
                 'terminate': json.dumps(self.terminate_on_end),
                 'use_gpu': json.dumps(self.use_gpu),
-                'script_args': script_args,
-                'startup-script': start_script,
-                'shutdown-script': stop_script,
+                'startup_script': start_script,
+                'shutdown_script': stop_script,
                 'region': region
             }
             success, instance_info = self.create_instance(metadata, verbose=verbose)
@@ -723,6 +748,7 @@ class AzureMode(LaunchMode):
         )
         resource_group_params = {
             'location': region,
+            'tags': self.tags,
         }
         resource_group = resource_group_client.resource_groups.create_or_update(
             azure_resource_group,
@@ -782,14 +808,16 @@ class AzureMode(LaunchMode):
             )
             nic = poller.result()
 
-            with open(azure_util.AZURE_STARTUP_SCRIPT_PATH, mode='r') as f:
-                startup_script_str = f.read()
+            startup_script_str = metadata['startup_script']
+            # TODO: how do we use this shutdown script?
+            shutdown_script_str = metadata['shutdown_script']
             for old, new in [
                 ('DOODAD_LOG_PATH', self.log_path),
                 ('DOODAD_STORAGE_ACCOUNT_NAME', self.connection_info['AccountName']),
                 ('DOODAD_STORAGE_ACCOUNT_KEY', self.connection_info['AccountKey']),
                 ('DOODAD_CONTAINER_NAME', self.azure_container),
                 ('DOODAD_REMOTE_SCRIPT_PATH', metadata['remote_script_path']),
+                ('DOODAD_REMOTE_SCRIPT_ARGS', metadata['remote_script_args']),
                 ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
                 ('DOODAD_TERMINATE_ON_END', metadata['terminate']),
                 ('DOODAD_USE_GPU', metadata['use_gpu'])
@@ -830,9 +858,7 @@ class AzureMode(LaunchMode):
                         'id': nic.id
                     }]
                 },
-                'tags': {
-                    'log_path': self.log_path,
-                },
+                'tags': self.tags,
                 'identity': params_identity,
             }
             if self.preemptible:

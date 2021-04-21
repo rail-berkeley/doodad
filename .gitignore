@@ -1,6 +1,7 @@
 aws_config/
 *.dar
 testing/test_outputs/
+doodad/wrappers/easy_launch/config_private.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
