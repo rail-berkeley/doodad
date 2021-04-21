@@ -57,49 +57,15 @@ def encode_args(call_args, cloudpickle=False):
 
 
 if __name__ == "__main__":
-    import sys
-    with open('/output/test_from_doodad', "a") as f:
-        f.write("this is a test. argv = {}".format(sys.argv))
-    print('hello123')
-
-    from rlkit.core import logger
-    text_log_path = '/output/debug.log'
-    logger.add_text_output(text_log_path)
-    logger.set_snapshot_dir('/output/')
-    logger.log('hello123')
-
-    import torch
-
-    import rlkit.torch.pytorch_util as ptu
-    logger.log(str(torch.__version__))
-    if torch.cuda.is_available():
-        x = torch.randn(3)
-        logger.log(str(x.to(ptu.device)))
-
-    logger.log("start mujoco")
-    import mujoco_py
-    logger.log("imported mujoco")
-    from gym.envs.mujoco import HalfCheetahEnv
-    e = HalfCheetahEnv()
-    img = e.sim.render(32, 32)
-    logger.log(str(sum(img)))
-    logger.log("end mujoco_py")
-
     import matplotlib
     matplotlib.use('agg')
 
     args_dict = get_args()
-    logger.log(str(args_dict))
-    print('args_dict', args_dict)
-    print('args_dict', args_dict.keys())
     method_call = args_dict['method_call']
     doodad_config = args_dict['doodad_config']
     variant = args_dict['variant']
     output_dir = args_dict['output_dir']
     run_mode = args_dict.get('mode', None)
-    logger.log(str(doodad_config))
-    logger.log(str(variant))
-    logger.log(str(output_dir))
     if run_mode and run_mode in ['slurm_singularity', 'sss', 'htp']:
         import os
         doodad_config.extra_launch_info['slurm-job-id'] = os.environ.get(
@@ -132,14 +98,35 @@ if __name__ == "__main__":
             except Exception as e:
                 print("Could not get GCP instance name. Error was...")
                 print(e)
-        # Do this in case base_log_dir was already set
+        if run_mode == 'azure':
+            try:
+                import urllib.request
+                request = urllib.request.Request(
+                    "http://169.254.169.254/metadata/instance?api-version=2020-06-01"
+                )
+                request.add_header("Metadata", "true")
+                azure_metadata = urllib.request.urlopen(request).read().decode()
+                doodad_config.extra_launch_info['azure_metadata2'] = (
+                    azure_metadata
+                )
+            except Exception as e:
+                print("Could not get Azure instance metadata 2. Error was...")
+                print(e)
+            try:
+                import urllib.request
+                request = urllib.request.Request(
+                    "http://169.254.169.254/metadata/instance?api-version=2020-06-01"
+                )
+                request.add_header("Metadata", True)
+                azure_metadata = urllib.request.urlopen(request).read().decode()
+                doodad_config.extra_launch_info['azure_metadata3'] = (
+                    azure_metadata
+                )
+            except Exception as e:
+                print("Could not get Azure instance metadata 3. Error was...")
+                print(e)
         doodad_config = doodad_config._replace(
-            base_log_dir=output_dir,
+            output_directory=output_dir,
         )
-
-    import os
-    import os.path as osp
-    if not osp.exists(output_dir):
-        os.mkdir(output_dir)
 
     method_call(doodad_config, variant)

@@ -29,9 +29,8 @@ def sweep_function(
     def foo(doodad_config, variant):
         x = variant['x']
         y = variant['y']
-        print("sum", x+y)
-        with open(doodad_config.base_log_dir, "w") as f:
-          f.write('sum = %f' % x + y)
+        with open(doodad_config.output_directory + '/foo_output.txt', "w") as f:
+            f.write('sum = %f' % x + y)
 
     params = {
         'x': [1, 4],
@@ -68,6 +67,7 @@ def sweep_function(
         gpu_id=gpu_id,
         git_infos=git_infos,
         script_name=' '.join(sys.argv),
+        output_directory=output_mount.mount_point,
         extra_launch_info={},
     )
 
@@ -79,7 +79,7 @@ def sweep_function(
         new_log_path = log_path + path_suffix
         args = {
             'method_call': method_call,
-            'output_dir': '{}/{}'.format(output_mount.mount_point, new_log_path),
+            'output_dir': output_mount.mount_point,
             'doodad_config': doodad_config,
             'variant': config,
             'mode': mode,
@@ -144,17 +144,12 @@ def foo(doodad_config, variant):
     x = variant['x']
     y = variant['y']
     print("sum", x+y)
-    import os
-    directory = doodad_config.base_log_dir
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    with open(directory + '/foo_output.txt', "w") as f:
-        f.write('sum = %f' % x + y)
+    print("OUTPUT_DIR_IS", doodad_config.output_directory)
+    with open(doodad_config.output_directory + '/foo_output.txt', "w") as f:
+        f.write('sum = {}\n'.format(x + y))
 
-    import sys
-    with open('/output/from_script_test_from_doodad', "a") as f:
-        f.write("this is a test. argv = {}\n".format(sys.argv))
-        f.write("variant = {}".format(str(variant)))
+    from doodad.wrappers.easy_launch.metadata import save_doodad_config
+    save_doodad_config(doodad_config)
 
 
 if __name__ == '__main__':
@@ -162,4 +157,4 @@ if __name__ == '__main__':
         'x': [1,2],
         'y': [3],
     }
-    sweep_function(foo, params, log_path='exp_12_safe_import')
+    sweep_function(foo, params, log_path='exp_15_no_mkdir_in_run_exp_and_try_getting_metadata')
