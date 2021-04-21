@@ -29,17 +29,27 @@ def sweep_function(
     """
     Usage:
     ```
-    def foo(doodad_config, variant):
+    def function(doodad_config, variant):
         x = variant['x']
         y = variant['y']
-        with open(doodad_config.output_directory + '/foo_output.txt', "w") as f:
-            f.write('sum = %f' % x + y)
+        z = variant['z']
+        with open(doodad_config.output_directory + '/function_output.txt', "w") as f:
+            f.write('sum = {}'.format(x+y+z))
 
-    params = {
+    params_to_sweep = {
         'x': [1, 4],
         'y': [3, 4],
     }
-    sweep_function(foo, variant, log_path='my-experiment')
+    default_params = {
+        'z': 10,
+    }
+    sweep_function(
+        function,
+        params_to_sweep,
+        default_params=default_params,
+        log_path='my-experiment',
+        mode='azure',
+    )
     ```
     :param method_call: A function
     :param params:
@@ -62,7 +72,7 @@ def sweep_function(
         datestamp = time.strftime("%y-%m-%d")
         log_path = '%s_%s' % (datestamp, log_path)
     target = osp.join(REPO_DIR, 'doodad/wrappers/easy_launch/run_experiment.py')
-    sweeper, output_mount = _create_sweeper_and_output_mount(mode)
+    sweeper, output_mount = _create_sweeper_and_output_mount(mode, log_path)
     git_infos = metadata.generate_git_infos()
 
     doodad_config = metadata.DoodadConfig(
@@ -75,7 +85,7 @@ def sweep_function(
     )
 
     if mode == 'here_no_doodad':
-        return run_method_here_no_doodad(
+        return _run_method_here_no_doodad(
             method_call,
             doodad_config,
             params,
@@ -83,7 +93,7 @@ def sweep_function(
             log_path,
         )
 
-    def postprocess_config_and_run_mode(config, run_mode, config_idx):
+    def postprocess_config_and_run_mode(config, run_mode, mounts, config_idx):
         if name_runs_by_id:
             path_suffix = '/run{}'.format(start_run_id + config_idx)
         else:
@@ -106,15 +116,46 @@ def sweep_function(
             run_mode.log_path = new_log_path
         if isinstance(run_mode, ddmode.GCPMode):
             run_mode.gcp_log_path = new_log_path
-        if isinstance(run_mode, ddmode.EC2Mode):
-            run_mode.s3_log_path = new_log_path
+        if isinstance(run_mode, ddmode.LocalMode):
+            # TODO: can I make this wor  # TODO: how to make this vary in local mode?0k?
+            for m in mounts:
+                if not m.read_only:
+                    m.set_local_dir(osp.join(LOCAL_LOG_DIR, new_log_path))
         return new_config, run_mode
 
-    run_sweep(default_params, log_path, mode, params,
-              postprocess_config_and_run_mode, sweeper, target)
+    def _run_sweep():
+        if mode == 'azure':
+            sweeper.run_sweep_azure(
+                target,
+                params,
+                default_params=default_params,
+                log_path=log_path,
+                add_date_to_logname=False,
+                postprocess_config_and_run_mode=postprocess_config_and_run_mode,
+            )
+        elif mode == 'gcp':
+            sweeper.run_sweep_gcp(
+                target,
+                params,
+                default_params=default_params,
+                log_prefix=log_path,
+                add_date_to_logname=False,
+                postprocess_config_and_run_mode=postprocess_config_and_run_mode,
+            )
+        elif mode == 'local':
+            sweeper.run_sweep_local(
+                target,
+                params,
+                default_params=default_params,
+                postprocess_config_and_run_mode=postprocess_config_and_run_mode,
+            )
+        else:
+            raise ValueError('Unknown mode: {}'.format(mode))
+
+    _run_sweep()
 
 
-def run_method_here_no_doodad(
+def _run_method_here_no_doodad(
         method_call, doodad_config, params, default_params, log_path
 ):
     sweeper = Sweeper(params, default_params)
@@ -124,37 +165,6 @@ def run_method_here_no_doodad(
         )
         save_doodad_config(doodad_config)
         method_call(doodad_config, config)
-
-
-def run_sweep(default_params, log_path, mode, params,
-              postprocess_config_and_run_mode, sweeper, target):
-    if mode == 'azure':
-        sweeper.run_sweep_azure(
-            target,
-            params,
-            default_params=default_params,
-            log_path=log_path,
-            add_date_to_logname=False,
-            postprocess_config_and_run_mode=postprocess_config_and_run_mode,
-        )
-    elif mode == 'gcp':
-        sweeper.run_sweep_gcp(
-            target,
-            params,
-            default_params=default_params,
-            log_prefix=log_path,
-            add_date_to_logname=False,
-            postprocess_config_and_run_mode=postprocess_config_and_run_mode,
-        )
-    elif mode == 'local':
-        sweeper.run_sweep_local(
-            target,
-            params,
-            default_params=default_params,
-            postprocess_config_and_run_mode=postprocess_config_and_run_mode,
-        )
-    else:
-        raise ValueError('Unknown mode: {}'.format(mode))
 
 
 def _create_mounts():
@@ -172,7 +182,7 @@ def _create_mounts():
     return mounts
 
 
-def _create_sweeper_and_output_mount(mode):
+def _create_sweeper_and_output_mount(mode, log_path):
     mounts = _create_mounts()
     az_mount = doodad.MountAzure(
         '',
@@ -188,7 +198,7 @@ def _create_sweeper_and_output_mount(mode):
         azure_tenant_id=AZ_TENANT_ID,
         azure_storage_container=AZ_CONTAINER,
         mount_out_azure=az_mount,
-        local_output_dir=LOCAL_LOG_DIR,
+        local_output_dir=osp.join(LOCAL_LOG_DIR, log_path),  # TODO: how to make this vary in local mode?
     )
     # TODO: the sweeper should probably only have one output mount that is
     # set rather than read based on the mode
@@ -205,30 +215,19 @@ def _create_sweeper_and_output_mount(mode):
     return sweeper, output_mount
 
 
-def foo(doodad_config, variant):
-    x = variant['x']
-    y = variant['y']
-    print("sum", x+y)
-    print("OUTPUT_DIR_IS", doodad_config.output_directory)
-    with open(doodad_config.output_directory + '/foo_output.txt', "w") as f:
-        f.write('sum = {}\n'.format(x + y))
-
-    from doodad.wrappers.easy_launch.metadata import save_doodad_config
-    save_doodad_config(doodad_config)
-
-
 def function(doodad_config, variant):
     x = variant['x']
     y = variant['y']
     z = variant['z']
     with open(doodad_config.output_directory + '/function_output.txt', "w") as f:
         f.write('sum = {}'.format(x+y+z))
+    save_doodad_config(doodad_config)
 
 
 if __name__ == "__main__":
     params_to_sweep = {
         'x': [1, 4],
-        'y': [3, 4],
+        'y': [100],
     }
     default_params = {
         'z': 10,
@@ -237,7 +236,9 @@ if __name__ == "__main__":
         function,
         params_to_sweep,
         default_params=default_params,
-        log_path='my-experiment',
+        log_path='exp19_hopefully_final_test_with_json_resource_group_name_read_take2',
+        # log_path='exp18_local_test',
         mode='azure',
         # mode='here_no_doodad',  # this should also work
+        # mode='local',
     )
