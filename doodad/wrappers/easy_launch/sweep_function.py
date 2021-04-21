@@ -7,14 +7,17 @@ from doodad.utils import REPO_DIR
 
 import doodad
 from doodad.wrappers.easy_launch import run_experiment, metadata
-from doodad.wrappers.easy_launch.config_private import AZ_SUB_ID, AZ_CLIENT_ID, AZ_TENANT_ID, AZ_SECRET, AZ_CONN_STR, AZ_CONTAINER, CODE_DIRS_TO_MOUNT, NON_CODE_DIRS_TO_MOUNT
+from doodad.wrappers.easy_launch.config_private import AZ_SUB_ID, AZ_CLIENT_ID, AZ_TENANT_ID, AZ_SECRET, AZ_CONN_STR, AZ_CONTAINER, CODE_DIRS_TO_MOUNT, NON_CODE_DIRS_TO_MOUNT, LOCAL_LOG_DIR
+from doodad.wrappers.easy_launch.metadata import save_doodad_config
 from doodad.wrappers.sweeper import DoodadSweeper
+from doodad.wrappers.sweeper.hyper_sweep import Sweeper
 
 
 def sweep_function(
         method_call,
         params,
         log_path,
+        default_params=None,
         use_cloudpickle=True,
         add_date_to_logname=True,
         mode='azure',
@@ -59,7 +62,7 @@ def sweep_function(
         datestamp = time.strftime("%y-%m-%d")
         log_path = '%s_%s' % (datestamp, log_path)
     target = osp.join(REPO_DIR, 'doodad/wrappers/easy_launch/run_experiment.py')
-    sweeper, output_mount = _create_sweeper_and_output_mount()
+    sweeper, output_mount = _create_sweeper_and_output_mount(mode)
     git_infos = metadata.generate_git_infos()
 
     doodad_config = metadata.DoodadConfig(
@@ -70,6 +73,15 @@ def sweep_function(
         output_directory=output_mount.mount_point,
         extra_launch_info={},
     )
+
+    if mode == 'here_no_doodad':
+        return run_method_here_no_doodad(
+            method_call,
+            doodad_config,
+            params,
+            default_params,
+            log_path,
+        )
 
     def postprocess_config_and_run_mode(config, run_mode, config_idx):
         if name_runs_by_id:
@@ -98,11 +110,51 @@ def sweep_function(
             run_mode.s3_log_path = new_log_path
         return new_config, run_mode
 
-    sweeper.run_sweep_azure(
-        target, params, log_path=log_path,
-        add_date_to_logname=False,
-        postprocess_config_and_run_mode=postprocess_config_and_run_mode,
-    )
+    run_sweep(default_params, log_path, mode, params,
+              postprocess_config_and_run_mode, sweeper, target)
+
+
+def run_method_here_no_doodad(
+        method_call, doodad_config, params, default_params, log_path
+):
+    sweeper = Sweeper(params, default_params)
+    for xid, config in enumerate(sweeper):
+        doodad_config = doodad_config._replace(
+            output_directory=osp.join(LOCAL_LOG_DIR, log_path, 'run{}'.format(xid)),
+        )
+        save_doodad_config(doodad_config)
+        method_call(doodad_config, config)
+
+
+def run_sweep(default_params, log_path, mode, params,
+              postprocess_config_and_run_mode, sweeper, target):
+    if mode == 'azure':
+        sweeper.run_sweep_azure(
+            target,
+            params,
+            default_params=default_params,
+            log_path=log_path,
+            add_date_to_logname=False,
+            postprocess_config_and_run_mode=postprocess_config_and_run_mode,
+        )
+    elif mode == 'gcp':
+        sweeper.run_sweep_gcp(
+            target,
+            params,
+            default_params=default_params,
+            log_prefix=log_path,
+            add_date_to_logname=False,
+            postprocess_config_and_run_mode=postprocess_config_and_run_mode,
+        )
+    elif mode == 'local':
+        sweeper.run_sweep_local(
+            target,
+            params,
+            default_params=default_params,
+            postprocess_config_and_run_mode=postprocess_config_and_run_mode,
+        )
+    else:
+        raise ValueError('Unknown mode: {}'.format(mode))
 
 
 def _create_mounts():
@@ -120,7 +172,7 @@ def _create_mounts():
     return mounts
 
 
-def _create_sweeper_and_output_mount():
+def _create_sweeper_and_output_mount(mode):
     mounts = _create_mounts()
     az_mount = doodad.MountAzure(
         '',
@@ -135,9 +187,22 @@ def _create_sweeper_and_output_mount():
         azure_authentication_key=AZ_SECRET,
         azure_tenant_id=AZ_TENANT_ID,
         azure_storage_container=AZ_CONTAINER,
-        azure_output_mount=az_mount,
+        mount_out_azure=az_mount,
+        local_output_dir=LOCAL_LOG_DIR,
     )
-    return sweeper, az_mount
+    # TODO: the sweeper should probably only have one output mount that is
+    # set rather than read based on the mode
+    if mode == 'azure':
+        output_mount = sweeper.mount_out_azure
+    elif mode == 'gcp':
+        output_mount = sweeper.mount_out_gcp
+    elif mode == 'here_no_doodad':
+        output_mount = sweeper.mount_out_local  # this will be ignored
+    elif mode == 'local':
+        output_mount = sweeper.mount_out_local
+    else:
+        raise ValueError('Unknown mode: {}'.format(mode))
+    return sweeper, output_mount
 
 
 def foo(doodad_config, variant):
@@ -152,9 +217,27 @@ def foo(doodad_config, variant):
     save_doodad_config(doodad_config)
 
 
-if __name__ == '__main__':
-    params = {
-        'x': [1,2],
-        'y': [3],
+def function(doodad_config, variant):
+    x = variant['x']
+    y = variant['y']
+    z = variant['z']
+    with open(doodad_config.output_directory + '/function_output.txt', "w") as f:
+        f.write('sum = {}'.format(x+y+z))
+
+
+if __name__ == "__main__":
+    params_to_sweep = {
+        'x': [1, 4],
+        'y': [3, 4],
     }
-    sweep_function(foo, params, log_path='exp_16_save_doodad_config_in_foo')
+    default_params = {
+        'z': 10,
+    }
+    sweep_function(
+        function,
+        params_to_sweep,
+        default_params=default_params,
+        log_path='my-experiment',
+        mode='azure',
+        # mode='here_no_doodad',  # this should also work
+    )

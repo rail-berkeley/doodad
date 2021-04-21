@@ -8,6 +8,8 @@ NON_CODE_DIRS_TO_MOUNT = [
         mount_point='/root/.mujoco',
     ),
 ]
+LOCAL_LOG_DIR = '/home/user/logs/'
+
 import os
 try:
     AZ_SUB_ID=os.environ['AZURE_SUBSCRIPTION_ID']

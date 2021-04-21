@@ -63,6 +63,7 @@ def generate_git_infos():
 
 
 def save_doodad_config(doodad_config: DoodadConfig):
+    os.makedirs(doodad_config.output_directory, exist_ok=True)
     save_git_infos(doodad_config.git_infos, doodad_config.output_directory)
     save_script_name(doodad_config.script_name, doodad_config.output_directory)
 

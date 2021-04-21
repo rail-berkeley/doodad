@@ -25,7 +25,7 @@ class DoodadSweeper(object):
             azure_authentication_key=None,
             azure_tenant_id=None,
             azure_storage_container=None,
-            azure_output_mount=None,
+            mount_out_azure=None,
     ):
         if mounts is None:
             mounts = []
@@ -51,8 +51,8 @@ class DoodadSweeper(object):
         self.azure_authentication_key = azure_authentication_key
         self.azure_tenant_id = azure_tenant_id
         self.azure_storage_container = azure_storage_container
-        self.azure_output_mount = (
-                azure_output_mount
+        self.mount_out_azure = (
+                mount_out_azure
                 or mount.MountAzure(azure_path='azure_script_output', mount_point=docker_output_dir)
         )
 
@@ -154,12 +154,12 @@ class DoodadSweeper(object):
                                                  run_mode=run_mode,
                                                  docker_image=self.image,
                                                  num_chunks=num_chunks,
-                                                 mounts=self.mounts+[self.azure_output_mount]+extra_mounts,
+                                                 mounts=self.mounts+[self.mount_out_azure]+extra_mounts,
                                                  **kwargs)
         else:
             hyper_sweep.run_sweep_doodad(target, params,
                                          run_mode=run_mode,
                                          docker_image=self.image,
-                                         mounts=self.mounts+[self.azure_output_mount]+extra_mounts,
+                                         mounts=self.mounts+[self.mount_out_azure]+extra_mounts,
                                          **kwargs)
 
