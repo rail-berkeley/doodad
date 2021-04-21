@@ -157,4 +157,4 @@ if __name__ == '__main__':
         'x': [1,2],
         'y': [3],
     }
-    sweep_function(foo, params, log_path='exp_15_no_mkdir_in_run_exp_and_try_getting_metadata')
+    sweep_function(foo, params, log_path='exp_16_save_doodad_config_in_foo')

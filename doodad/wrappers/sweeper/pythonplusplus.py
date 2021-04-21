@@ -1,7 +1,7 @@
 """
 General purpose Python functions.
 
-TODO(vitchyr): probably move this to its own module, not under railrl
+Based on: https://github.com/vitchyr/rlkit/blob/master/rlkit/pythonplusplus.py
 """
 import math
 import sys
