@@ -5,6 +5,7 @@ on doodad.
 import pickle
 import base64
 import argparse
+from pathlib import Path
 
 
 ARGS_DATA = 'DOODAD_ARGS_DATA'
@@ -115,8 +116,8 @@ if __name__ == "__main__":
             except Exception as e:
                 print("Could not get Azure instance metadata. Error was...")
                 print(e)
-        doodad_config = doodad_config._replace(
-            output_directory=output_dir,
-        )
-
+    doodad_config = doodad_config._replace(
+        output_directory=output_dir,
+    )
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
     method_call(doodad_config, variant)

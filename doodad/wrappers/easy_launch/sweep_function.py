@@ -24,6 +24,7 @@ def sweep_function(
         use_gpu=False,
         gpu_id=0,
         name_runs_by_id=True,
+        add_time_to_run_id=True,
         start_run_id=0
 ):
     """
@@ -51,7 +52,14 @@ def sweep_function(
         mode='azure',
     )
     ```
-    :param method_call: A function
+    :param mode: Mode to run this in. Supported modes:
+        - 'azure'
+        - 'here_no_doodad'
+        - 'local'
+        - 'gcp' (untested)
+    :param method_call: A function that takes in two parameters:
+        doodad_config: metadata.DoodadConfig
+        variant: dictionary
     :param params:
     :param log_path:
     :param name_runs_by_id: If true, then each run will be in its own
@@ -63,8 +71,9 @@ def sweep_function(
             run2/
             ...
     ```
-    otherwise, all the runs will be saved to `log_path/` directly (possibly with
-    some collision-logic that's mode-dependent).
+    otherwise, all the runs will be saved to `log_path/` directly. The way path
+    collisions are handled depends on the mode.
+    :param add_time_to_run_id: If true, append the time to the run id name
     :param start_run_id:
     :return: How many
     """
@@ -84,6 +93,16 @@ def sweep_function(
         extra_launch_info={},
     )
 
+    def _create_final_log_path(base_path, run_id):
+        if name_runs_by_id:
+            path_suffix = '/run{}'.format(start_run_id + run_id)
+            if add_time_to_run_id:
+                timestamp = time.strftime("%Hh-%Mm-%Ss")
+                path_suffix += '_{}'.format(timestamp)
+        else:
+            path_suffix = ''
+        return base_path + path_suffix
+
     if mode == 'here_no_doodad':
         return _run_method_here_no_doodad(
             method_call,
@@ -91,14 +110,11 @@ def sweep_function(
             params,
             default_params,
             log_path,
+            _create_final_log_path,
         )
 
-    def postprocess_config_and_run_mode(config, run_mode, mounts, config_idx):
-        if name_runs_by_id:
-            path_suffix = '/run{}'.format(start_run_id + config_idx)
-        else:
-            path_suffix = ''
-        new_log_path = log_path + path_suffix
+    def postprocess_config_and_run_mode(config, run_mode, config_idx):
+        new_log_path = _create_final_log_path(log_path, config_idx)
         args = {
             'method_call': method_call,
             'output_dir': output_mount.mount_point,
@@ -106,21 +122,20 @@ def sweep_function(
             'variant': config,
             'mode': mode,
         }
+        if isinstance(run_mode, ddmode.AzureMode):
+            run_mode.log_path = new_log_path
+        if isinstance(run_mode, ddmode.GCPMode):
+            run_mode.gcp_log_path = new_log_path
+        if isinstance(run_mode, ddmode.LocalMode):
+            args['output_dir'] = _create_final_log_path(
+                args['output_dir'], config_idx
+            )
         args_encoded, cp_version = run_experiment.encode_args(args, cloudpickle=use_cloudpickle)
         new_config = {
             run_experiment.ARGS_DATA: args_encoded,
             run_experiment.USE_CLOUDPICKLE: str(int(use_cloudpickle)),
             run_experiment.CLOUDPICKLE_VERSION :cp_version,
         }
-        if isinstance(run_mode, ddmode.AzureMode):
-            run_mode.log_path = new_log_path
-        if isinstance(run_mode, ddmode.GCPMode):
-            run_mode.gcp_log_path = new_log_path
-        if isinstance(run_mode, ddmode.LocalMode):
-            # TODO: can I make this wor  # TODO: how to make this vary in local mode?0k?
-            for m in mounts:
-                if not m.read_only:
-                    m.set_local_dir(osp.join(LOCAL_LOG_DIR, new_log_path))
         return new_config, run_mode
 
     def _run_sweep():
@@ -156,12 +171,14 @@ def sweep_function(
 
 
 def _run_method_here_no_doodad(
-        method_call, doodad_config, params, default_params, log_path
+        method_call, doodad_config, params, default_params, log_path,
+        create_final_log_path
 ):
     sweeper = Sweeper(params, default_params)
     for xid, config in enumerate(sweeper):
+        new_log_path = create_final_log_path(log_path, xid)
         doodad_config = doodad_config._replace(
-            output_directory=osp.join(LOCAL_LOG_DIR, log_path, 'run{}'.format(xid)),
+            output_directory=osp.join(LOCAL_LOG_DIR, new_log_path),
         )
         save_doodad_config(doodad_config)
         method_call(doodad_config, config)
@@ -215,7 +232,7 @@ def _create_sweeper_and_output_mount(mode, log_path):
     return sweeper, output_mount
 
 
-def function(doodad_config, variant):
+def example_function(doodad_config, variant):
     x = variant['x']
     y = variant['y']
     z = variant['z']
@@ -232,13 +249,15 @@ if __name__ == "__main__":
     default_params = {
         'z': 10,
     }
-    sweep_function(
-        function,
-        params_to_sweep,
-        default_params=default_params,
-        log_path='exp19_hopefully_final_test_with_json_resource_group_name_read_take2',
-        # log_path='exp18_local_test',
-        mode='azure',
-        # mode='here_no_doodad',  # this should also work
-        # mode='local',
-    )
+    for mode in [
+        'here_no_doodad',
+        'local',
+        'azure',
+    ]:
+        sweep_function(
+            example_function,
+            params_to_sweep,
+            default_params=default_params,
+            log_path='test_easy_launch_{}_mode'.format(mode),
+            mode=mode,
+        )
