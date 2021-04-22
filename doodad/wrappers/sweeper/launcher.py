@@ -1,11 +1,9 @@
-import getpass
 import os
 from datetime import datetime
 
 import doodad
 import doodad.mode
 import doodad.mount as mount
-from doodad.utils import REPO_DIR
 from doodad.wrappers.sweeper import hyper_sweep
 
 
@@ -85,6 +83,7 @@ class DoodadSweeper(object):
     def run_sweep_gcp(self, target, params,
                       log_prefix=None, add_date_to_logname=True,
                       region='us-west1-a', instance_type='n1-standard-4', args=None,
+                      num_gpu=1,
                       extra_mounts=None, num_chunks=-1, **kwargs):
         """
         Run a grid search on GCP
@@ -104,7 +103,8 @@ class DoodadSweeper(object):
             zone=region,
             instance_type=instance_type,
             gcp_image=self.gcp_image,
-            gcp_image_project=self.gcp_project
+            gcp_image_project=self.gcp_project,
+            num_gpu=num_gpu,
         )
         if num_chunks > 0:
             hyper_sweep.run_sweep_doodad_chunked(target, params,
@@ -125,7 +125,12 @@ class DoodadSweeper(object):
                         region='westus',
                         instance_type='Standard_DS1_v2',
                         tags=None,
-                        extra_mounts=None, num_chunks=-1, **kwargs):
+                        extra_mounts=None,
+                        num_chunks=-1,
+                        use_gpu=False,
+                        num_gpu=1,
+                        gpu_model='nvidia-tesla-k80',
+                        **kwargs):
         """
         Run a grid search on GCP
         """
@@ -148,6 +153,9 @@ class DoodadSweeper(object):
             region=region,
             instance_type=instance_type,
             tags=tags,
+            use_gpu=use_gpu,
+            gpu_model=gpu_model,
+            num_gpu=num_gpu,
         )
         if num_chunks > 0:
             hyper_sweep.run_sweep_doodad_chunked(target, params,

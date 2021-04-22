@@ -21,7 +21,7 @@ DoodadConfig = NamedTuple(
     'DoodadConfig',
     [
         ('use_gpu', bool),
-        ('gpu_id', Union[int, str]),
+        ('num_gpu', int),
         ('git_infos', List[GitInfo]),
         ('script_name', str),
         ('output_directory', str),
@@ -75,7 +75,7 @@ def save_doodad_config(doodad_config: DoodadConfig):
         )
         f.write('\n')
         f.write('use_gpu={}\n'.format(doodad_config.use_gpu))
-        f.write('gpu_id={}\n'.format(doodad_config.gpu_id))
+        f.write('num_gpu={}\n'.format(doodad_config.num_gpu))
 
 
 def save_script_name(script_name: str, log_dir: str):
