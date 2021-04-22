@@ -93,7 +93,6 @@ class MountLocal(Mount):
         self.filter_ext = filter_ext
         self.filter_dir = filter_dir
         self.delete_before_mount = delete_before_mount
-        self._orig_mount_point = mount_point
         if mount_point is None:
             self.mount_point = self.local_dir
         else:
@@ -103,15 +102,6 @@ class MountLocal(Mount):
                 raise ValueError('Output mount points must be absolute')
             if not self.local_dir.startswith('/'):
                 raise ValueError('Output local directories must be absolute')
-
-    def set_local_dir(self, value):
-        self.local_dir = os.path.realpath(os.path.expanduser(value))
-        self._name = self.local_dir.replace('/', '_')
-        self.sync_dir = self.local_dir
-        if self._orig_mount_point is None:
-            self.mount_point = self.local_dir
-        else:
-            assert not self.mount_point.endswith('/'), "Do not end mount points with backslash:"+self.mount_point
 
     def ignore_patterns(self, dirname, contents):
         to_ignore = []
