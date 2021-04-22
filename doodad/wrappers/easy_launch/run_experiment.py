@@ -5,6 +5,7 @@ on doodad.
 import pickle
 import base64
 import argparse
+from pathlib import Path
 
 
 ARGS_DATA = 'DOODAD_ARGS_DATA'
@@ -101,32 +102,22 @@ if __name__ == "__main__":
         if run_mode == 'azure':
             try:
                 import urllib.request
-                request = urllib.request.Request(
-                    "http://169.254.169.254/metadata/instance?api-version=2020-06-01"
-                )
-                request.add_header("Metadata", "true")
-                azure_metadata = urllib.request.urlopen(request).read().decode()
-                doodad_config.extra_launch_info['azure_metadata2'] = (
-                    azure_metadata
-                )
-            except Exception as e:
-                print("Could not get Azure instance metadata 2. Error was...")
-                print(e)
-            try:
-                import urllib.request
+                import json
                 request = urllib.request.Request(
                     "http://169.254.169.254/metadata/instance?api-version=2020-06-01"
                 )
                 request.add_header("Metadata", True)
-                azure_metadata = urllib.request.urlopen(request).read().decode()
-                doodad_config.extra_launch_info['azure_metadata3'] = (
-                    azure_metadata
+                azure_metadata = json.loads(
+                    urllib.request.urlopen(request).read().decode()
+                )
+                doodad_config.extra_launch_info['azure_resource_group_name'] = (
+                    azure_metadata['compute']['resourceGroupName']
                 )
             except Exception as e:
-                print("Could not get Azure instance metadata 3. Error was...")
+                print("Could not get Azure instance metadata. Error was...")
                 print(e)
-        doodad_config = doodad_config._replace(
-            output_directory=output_dir,
-        )
-
+    doodad_config = doodad_config._replace(
+        output_directory=output_dir,
+    )
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
     method_call(doodad_config, variant)
