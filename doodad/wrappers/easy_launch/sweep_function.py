@@ -246,6 +246,7 @@ def example_function(doodad_config, variant):
     z = variant['z']
     with open(doodad_config.output_directory + '/function_output.txt', "w") as f:
         f.write('sum = {}'.format(x+y+z))
+    print('x, y, z = ', x, y, z)
     save_doodad_config(doodad_config)
 
 

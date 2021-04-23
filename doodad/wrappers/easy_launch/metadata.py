@@ -56,9 +56,17 @@ def generate_git_infos():
                     branch_name=branch_name,
                 ))
             except git.exc.InvalidGitRepositoryError:
+                git_infos.append(GitInfo(
+                    directory=directory,
+                    code_diff='',
+                    code_diff_staged='',
+                    commit_hash='',
+                    branch_name='(not a git repo)',
+                ))
                 pass
-    except (ImportError, UnboundLocalError, NameError):
-        git_infos = None
+    except (ImportError, UnboundLocalError, NameError) as e:
+        print("Install GitPython to automatically save git information.")
+        git_infos = []
     return git_infos
 
 
