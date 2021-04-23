@@ -26,7 +26,7 @@ def sweep_function(
         name_runs_by_id=True,
         add_time_to_run_id=True,
         start_run_id=0,
-        docker_img=config.DEFAULT_DOCKER,
+        docker_image=config.DEFAULT_DOCKER,
 ):
     """
     Usage:
@@ -82,7 +82,7 @@ def sweep_function(
         datestamp = time.strftime("%y-%m-%d")
         log_path = '%s_%s' % (datestamp, log_path)
     target = osp.join(REPO_DIR, 'doodad/wrappers/easy_launch/run_experiment.py')
-    sweeper, output_mount = _create_sweeper_and_output_mount(mode, log_path, docker_img)
+    sweeper, output_mount = create_sweeper_and_output_mount(mode, log_path, docker_image)
     git_infos = metadata.generate_git_infos()
 
     doodad_config = metadata.DoodadConfig(
@@ -192,7 +192,7 @@ def _run_method_here_no_doodad(
         method_call(doodad_config, param)
 
 
-def _create_mounts():
+def create_mounts():
     NON_CODE_MOUNTS = [
         doodad.MountLocal(**non_code_mapping)
         for non_code_mapping in config.NON_CODE_DIRS_TO_MOUNT
@@ -207,15 +207,15 @@ def _create_mounts():
     return mounts
 
 
-def _create_sweeper_and_output_mount(mode, log_path, docker_img):
-    mounts = _create_mounts()
+def create_sweeper_and_output_mount(mode, log_path, docker_image):
+    mounts = create_mounts()
     az_mount = doodad.MountAzure(
         '',
         mount_point='/output',
     )
     sweeper = DoodadSweeper(
         mounts=mounts,
-        docker_img=docker_img,
+        docker_img=docker_image,
         azure_subscription_id=config.AZ_SUB_ID,
         azure_storage_connection_str=config.AZ_CONN_STR,
         azure_client_id=config.AZ_CLIENT_ID,
