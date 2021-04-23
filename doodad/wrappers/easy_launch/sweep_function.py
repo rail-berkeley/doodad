@@ -7,7 +7,7 @@ from doodad.utils import REPO_DIR
 
 import doodad
 from doodad.wrappers.easy_launch import run_experiment, metadata
-from doodad.wrappers.easy_launch.config_private import AZ_SUB_ID, AZ_CLIENT_ID, AZ_TENANT_ID, AZ_SECRET, AZ_CONN_STR, AZ_CONTAINER, CODE_DIRS_TO_MOUNT, NON_CODE_DIRS_TO_MOUNT, LOCAL_LOG_DIR
+from doodad.wrappers.easy_launch import config
 from doodad.wrappers.easy_launch.metadata import save_doodad_config
 from doodad.wrappers.sweeper import DoodadSweeper
 from doodad.wrappers.sweeper.hyper_sweep import Sweeper
@@ -22,10 +22,11 @@ def sweep_function(
         add_date_to_logname=True,
         mode='azure',
         use_gpu=False,
-        gpu_id=0,
+        num_gpu=1,
         name_runs_by_id=True,
         add_time_to_run_id=True,
-        start_run_id=0
+        start_run_id=0,
+        docker_img=config.DEFAULT_DOCKER,
 ):
     """
     Usage:
@@ -81,12 +82,12 @@ def sweep_function(
         datestamp = time.strftime("%y-%m-%d")
         log_path = '%s_%s' % (datestamp, log_path)
     target = osp.join(REPO_DIR, 'doodad/wrappers/easy_launch/run_experiment.py')
-    sweeper, output_mount = _create_sweeper_and_output_mount(mode, log_path)
+    sweeper, output_mount = _create_sweeper_and_output_mount(mode, log_path, docker_img)
     git_infos = metadata.generate_git_infos()
 
     doodad_config = metadata.DoodadConfig(
         use_gpu=use_gpu,
-        gpu_id=gpu_id,
+        num_gpu=num_gpu,
         git_infos=git_infos,
         script_name=' '.join(sys.argv),
         output_directory=output_mount.mount_point,
@@ -147,6 +148,11 @@ def sweep_function(
                 log_path=log_path,
                 add_date_to_logname=False,
                 postprocess_config_and_run_mode=postprocess_config_and_run_mode,
+                instance_type=config.DEFAULT_AZURE_INSTANCE_TYPE,
+                gpu_model=config.DEFAULT_AZURE_GPU_MODEL,
+                use_gpu=use_gpu,
+                num_gpu=num_gpu,
+                region=config.DEFAULT_AZURE_REGION,
             )
         elif mode == 'gcp':
             sweeper.run_sweep_gcp(
@@ -156,6 +162,8 @@ def sweep_function(
                 log_prefix=log_path,
                 add_date_to_logname=False,
                 postprocess_config_and_run_mode=postprocess_config_and_run_mode,
+                num_gpu=num_gpu,
+                use_gpu=use_gpu,
             )
         elif mode == 'local':
             sweeper.run_sweep_local(
@@ -175,31 +183,31 @@ def _run_method_here_no_doodad(
         create_final_log_path
 ):
     sweeper = Sweeper(params, default_params)
-    for xid, config in enumerate(sweeper):
+    for xid, param in enumerate(sweeper):
         new_log_path = create_final_log_path(log_path, xid)
         doodad_config = doodad_config._replace(
-            output_directory=osp.join(LOCAL_LOG_DIR, new_log_path),
+            output_directory=osp.join(config.LOCAL_LOG_DIR, new_log_path),
         )
         save_doodad_config(doodad_config)
-        method_call(doodad_config, config)
+        method_call(doodad_config, param)
 
 
 def _create_mounts():
     NON_CODE_MOUNTS = [
         doodad.MountLocal(**non_code_mapping)
-        for non_code_mapping in NON_CODE_DIRS_TO_MOUNT
+        for non_code_mapping in config.NON_CODE_DIRS_TO_MOUNT
     ]
-    if REPO_DIR not in CODE_DIRS_TO_MOUNT:
-        CODE_DIRS_TO_MOUNT.append(REPO_DIR)
+    if REPO_DIR not in config.CODE_DIRS_TO_MOUNT:
+        config.CODE_DIRS_TO_MOUNT.append(REPO_DIR)
     CODE_MOUNTS = [
         doodad.MountLocal(local_dir=code_dir, pythonpath=True)
-        for code_dir in CODE_DIRS_TO_MOUNT
+        for code_dir in config.CODE_DIRS_TO_MOUNT
     ]
     mounts = CODE_MOUNTS + NON_CODE_MOUNTS
     return mounts
 
 
-def _create_sweeper_and_output_mount(mode, log_path):
+def _create_sweeper_and_output_mount(mode, log_path, docker_img):
     mounts = _create_mounts()
     az_mount = doodad.MountAzure(
         '',
@@ -207,15 +215,15 @@ def _create_sweeper_and_output_mount(mode, log_path):
     )
     sweeper = DoodadSweeper(
         mounts=mounts,
-        docker_img='vitchyr/railrl_v12_cuda10-1_mj2-0-2-2_torch1-1-0_gym0-12-5_py3-6-5:latest',
-        azure_subscription_id=AZ_SUB_ID,
-        azure_storage_connection_str=AZ_CONN_STR,
-        azure_client_id=AZ_CLIENT_ID,
-        azure_authentication_key=AZ_SECRET,
-        azure_tenant_id=AZ_TENANT_ID,
-        azure_storage_container=AZ_CONTAINER,
+        docker_img=docker_img,
+        azure_subscription_id=config.AZ_SUB_ID,
+        azure_storage_connection_str=config.AZ_CONN_STR,
+        azure_client_id=config.AZ_CLIENT_ID,
+        azure_authentication_key=config.AZ_SECRET,
+        azure_tenant_id=config.AZ_TENANT_ID,
+        azure_storage_container=config.AZ_CONTAINER,
         mount_out_azure=az_mount,
-        local_output_dir=osp.join(LOCAL_LOG_DIR, log_path),  # TODO: how to make this vary in local mode?
+        local_output_dir=osp.join(config.LOCAL_LOG_DIR, log_path),  # TODO: how to make this vary in local mode?
     )
     # TODO: the sweeper should probably only have one output mount that is
     # set rather than read based on the mode
@@ -258,6 +266,7 @@ if __name__ == "__main__":
             example_function,
             params_to_sweep,
             default_params=default_params,
-            log_path='test_easy_launch_{}_mode'.format(mode),
+            log_path='test_gpu_easy_launch_{}'.format(mode),
             mode=mode,
+            use_gpu=True,
         )

@@ -10,6 +10,13 @@ NON_CODE_DIRS_TO_MOUNT = [
 ]
 LOCAL_LOG_DIR = '/home/user/logs/'
 
+# see https://docs.microsoft.com/en-us/azure/virtual-machines/ncv3-series
+DEFAULT_AZURE_GPU_MODEL = 'nvidia-tesla-v100'
+DEFAULT_AZURE_INSTANCE_TYPE = 'Standard_DS1_v2'
+DEFAULT_AZURE_REGION = 'westus'
+
+DEFAULT_DOCKER = 'python:3'
+
 import os
 try:
     AZ_SUB_ID=os.environ['AZURE_SUBSCRIPTION_ID']
@@ -19,9 +26,13 @@ try:
     AZ_CONTAINER=os.environ['AZURE_STORAGE_CONTAINER']
     AZ_CONN_STR=os.environ['AZURE_STORAGE_CONNECTION_STRING']
 except:
-    print('azure config not set')
+    print('config.py: Azure environment variables not set')
 
 try:
     from doodad.wrappers.easy_launch.config_private import *
 except ImportError:
-    print('Please set config_private.py')
+    print("""
+    Consider copying config.py to config_private.py, i.e.
+
+    cp doodad/wrappers/easy_launch/config.py doodad/wrappers/easy_launch/config_private.py
+    """)
