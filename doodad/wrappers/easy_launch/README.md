@@ -3,7 +3,7 @@ Easy-launch is a wrapper around doodad that makes it easier to launch experiment
 Usage:
 
 ```python
-from doodad.wrappers.easy_launch.python_function import sweep_function
+from doodad.wrappers.easy_launch.core import sweep_function
 
 
 def function(doodad_config, variant):
@@ -78,11 +78,12 @@ NON_CODE_DIRS_TO_MOUNT = [
     ),
 ]
 LOCAL_LOG_DIR = '/home/user/logs'
+DEFAULT_DOCKER = 'user/image'
 ```
 
-After that, the settings are specific to the different mode you want to use
+And example docker file is provided in [docker_example/Dockerfile](docker_example/Dockerfile).)
 
-## BRC (sss and htp mode)
+## BRC (sss and htp mode - deprecated)
 _Disclaimer: this workflow is not polished, but it works. Hopefully we'll update this BRC workflow to be more similar to [this doodad version](https://github.com/rail-berkeley/doodad), but that's a work in progress._
 
 Setting up doodad + BRC takes a bit of extra leg-work, because you can't launched code from outside BRC using a API. Instead, you need to log in to the BRC node and launch code from inside of it.
