@@ -3,7 +3,7 @@ Easy-launch is a wrapper around doodad that makes it easier to launch experiment
 Usage:
 
 ```python
-from doodad.wrappers.easy_launch.core import sweep_function
+from doodad.wrappers.easy_launch import sweep_function
 
 
 def function(doodad_config, variant):
@@ -12,6 +12,10 @@ def function(doodad_config, variant):
     z = variant['z']
     with open(doodad_config.output_directory + '/function_output.txt', "w") as f:
         f.write('sum = {}'.format(x+y+z))
+
+    # optionally call this helper function to save metadata
+    from doodad.wrappers.easy_launch import save_doodad_config
+    save_doodad_config(doodad_config)
 
 
 if __name__ == "__main__":
