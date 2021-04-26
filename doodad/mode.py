@@ -705,7 +705,7 @@ class AzureMode(LaunchMode):
                       ' preemptible=False')
         return metadata
 
-    def create_instance(self, metadata, verbose=False):
+    def create_instance(self, metadata, verbose=False, attempt_number=0):
         success = False
         from azure.common.credentials import ServicePrincipalCredentials
         from azure.mgmt.resource import ResourceManagementClient
@@ -909,8 +909,15 @@ class AzureMode(LaunchMode):
             if isinstance(e, AzureCloudError):
                 print("Error when creating VM. Error message:")
                 print(e.message + '\n')
-
-                return success, e
+                if attempt_number <= 4:
+                    print("Retrying (attempt {})".format(attempt_number+1))
+                    return self.create_instance(
+                        metadata,
+                        verbose=verbose,
+                        attempt_number=attempt_number+1,
+                    )
+                else:
+                    return success, e
             raise e
         success = True
         return success, resource_group.id
