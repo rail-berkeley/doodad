@@ -94,6 +94,7 @@ def sweep_function(
         docker_image,
         code_dirs_to_mount=code_dirs_to_mount,
         non_code_dirs_to_mount=non_code_dirs_to_mount,
+        use_gpu=use_gpu,
     )
     git_infos = metadata.generate_git_infos()
 
@@ -235,6 +236,7 @@ def create_sweeper_and_output_mount(
         docker_image,
         code_dirs_to_mount=config.CODE_DIRS_TO_MOUNT,
         non_code_dirs_to_mount=config.NON_CODE_DIRS_TO_MOUNT,
+        use_gpu=False,
 ):
     mounts = create_mounts(
         code_dirs_to_mount=code_dirs_to_mount,
@@ -255,6 +257,7 @@ def create_sweeper_and_output_mount(
         azure_storage_container=config.AZ_CONTAINER,
         mount_out_azure=az_mount,
         local_output_dir=osp.join(config.LOCAL_LOG_DIR, log_path),  # TODO: how to make this vary in local mode?
+        local_use_gpu=use_gpu,
     )
     # TODO: the sweeper should probably only have one output mount that is
     # set rather than read based on the mode
