@@ -24,7 +24,7 @@ class Mount(object):
         output (bool): If False, this is a "code" directory. If True, this should be an empty
             "output" directory (nothing will be copied to remote)
     """
-    def __init__(self, mount_point=None, pythonpath=False, output=False):
+    def __init__(self, mount_point=None, pythonpath=False, output=False, dry=False):
         self.pythonpath = pythonpath
         self.read_only = not output
         self.mount_point = mount_point
