@@ -18,16 +18,17 @@ import contextlib
 import uuid
 
 import doodad
-from doodad.utils import cmd_builder
+from doodad.utils import cmd_builder, which
 
 THIS_FILE_DIR = os.path.dirname(__file__)
 MAKESELF_PATH = os.path.join(THIS_FILE_DIR, 'makeself.sh')
 MAKESELF_ARGS = ''
-if shutil.which('pigz') is not None:
+if which('pigz') is not None:
     MAKESELF_ARGS = '--pigz'
 MAKESELF_HEADER_PATH = os.path.join(THIS_FILE_DIR, 'makeself-header.sh')
 BEGIN_HEADER = '--- BEGIN DAR OUTPUT ---'
 DAR_PAYLOAD_MOUNT = 'dar_payload'
+
 
 def build_archive(archive_filename='runfile.dar',
                   docker_image='ubuntu:18.04',
@@ -170,4 +171,5 @@ def temp_archive_file():
         yield archive_file
     finally:
         shutil.rmtree(work_dir)
+
 
