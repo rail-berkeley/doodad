@@ -19,6 +19,14 @@ botocore = safe_import.try_import('botocore')
 from doodad.apis import gcp_util, aws_util, azure_util
 
 
+def _remove_duplicates(lst):
+    new_lst = []
+    for item in lst:
+        if item not in new_lst:
+            new_lst.append(item)
+    return new_lst
+
+
 class LaunchMode(object):
     """
     A LaunchMode object is responsible for executing a shell script on a specified platform.
@@ -572,6 +580,15 @@ class AzureMode(LaunchMode):
             spot_price (float): Maximal price for preemptible instance. Specify -1 for the no limit price for the spot instance.
             **kwargs:
     """
+    US_REGIONS = ['eastus', 'westus2', 'eastus2', 'westus', 'centralus', 'northcentralus',
+                  'southcentralus', 'westcentralus']
+    ABROAD_REGIONS = ['canadacentral', 'canadaeast', 'northeurope', 'ukwest', 'uksouth', 'westeurope', 'francecentral',
+                      'switzerlandnorth', 'germanywestcentral', 'norwayeast', 'brazilsouth', 'eastasia',
+                      'japanwest', 'japaneast', 'koreacentral', 'koreasouth', 'southeastasia',
+                      'australiasoutheast', 'australiaeast', 'australiacentral',
+                      'westindia', 'southindia', 'centralindia', 'southafricanorth', 'uaenorth'
+                      ]
+
     def __init__(self,
                  azure_subscription_id,
                  azure_storage_container,
@@ -591,6 +608,7 @@ class AzureMode(LaunchMode):
                  promo_price=True,
                  spot_price=-1,
                  tags=None,
+                 retry_regions=None,
                  **kwargs):
         super(AzureMode, self).__init__(**kwargs)
         self.subscription_id = azure_subscription_id
@@ -607,6 +625,7 @@ class AzureMode(LaunchMode):
         self.region = region
         self.instance_type = instance_type
         self.spot_max_price = spot_price
+        self._retry_regions = retry_regions
         if tags is None:
             from os import environ, getcwd
             getUser = lambda: environ["USERNAME"] if "C:" in getcwd() else environ[
@@ -665,22 +684,20 @@ class AzureMode(LaunchMode):
         with open(azure_util.AZURE_SHUTDOWN_SCRIPT_PATH) as f:
             stop_script = f.read()
 
-        regions = [self.region]
-        if self.preemptible:
-            # try all regions
-            us_regions = ['eastus', 'westus2', 'eastus2', 'westus', 'centralus', 'northcentralus',
-                          'southcentralus', 'westcentralus']
-            abroad = ['canadacentral', 'canadaeast', 'northeurope', 'ukwest', 'uksouth', 'westeurope', 'francecentral',
-                      'switzerlandnorth', 'germanywestcentral', 'norwayeast', 'brazilsouth', 'eastasia',
-                      'japanwest', 'japaneast', 'koreacentral', 'koreasouth', 'southeastasia',
-                      'australiasoutheast', 'australiaeast', 'australiacentral',
-                      'westindia', 'southindia', 'centralindia', 'southafricanorth', 'uaenorth'
-                      ]
-            all_regions = regions + us_regions + abroad  # prioritize selected self.region
-            regions = []
-            [regions.append(x) for x in all_regions if x not in regions]
+        if not self._retry_regions:
+            # By default always retry us regions
+            regions_to_try = [self.region] + self.US_REGIONS
+            if self.preemptible:
+                # For pre-emptible, try all regions
+                regions_to_try += self.ABROAD_REGIONS  # prioritize selected self.region
+            regions_to_try = _remove_duplicates(regions_to_try)
+        else:
+            regions_to_try = self._retry_regions
 
-        for region in regions:
+        first_try = True
+        for region in regions_to_try:
+            if not first_try:
+                print("Retrying on region {}".format(region))
             metadata = {
                 'shell_interpreter': self.shell_interpreter,
                 'azure_container_path': self.log_path,
@@ -694,6 +711,7 @@ class AzureMode(LaunchMode):
                 'region': region
             }
             success, instance_info = self.create_instance(metadata, verbose=verbose)
+            first_try = False
             if success:
                 print("Instance launched successfully")
                 break
@@ -705,8 +723,7 @@ class AzureMode(LaunchMode):
                       ' preemptible=False')
         return metadata
 
-    def create_instance(self, metadata, verbose=False, attempt_number=0):
-        success = False
+    def create_instance(self, metadata, verbose=False):
         from azure.common.credentials import ServicePrincipalCredentials
         from azure.mgmt.resource import ResourceManagementClient
         from azure.mgmt.compute import ComputeManagementClient
@@ -909,15 +926,7 @@ class AzureMode(LaunchMode):
             if isinstance(e, AzureCloudError):
                 print("Error when creating VM. Error message:")
                 print(e.message + '\n')
-                if attempt_number <= 4:
-                    print("Retrying (attempt {})".format(attempt_number+1))
-                    return self.create_instance(
-                        metadata,
-                        verbose=verbose,
-                        attempt_number=attempt_number+1,
-                    )
-                else:
-                    return success, e
+                return False, e
             raise e
         success = True
         return success, resource_group.id
