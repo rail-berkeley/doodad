@@ -269,6 +269,13 @@ class MountRemote(Mount):
     exist on whatever platform you're using."""
 
     def __init__(self, local_dir=None, output=True, **kwargs):
+        """Create a remote mount.
+
+        :param local_dir: a directory that you know will exist locally on the
+        running machine
+        :param output: same meaning as in `Mount`, but default to True.
+        :param kwargs: kwargs for `Mount`
+        """
         super(MountRemote, self).__init__(output=output, **kwargs)
         self._name = local_dir
         self.sync_dir = local_dir
