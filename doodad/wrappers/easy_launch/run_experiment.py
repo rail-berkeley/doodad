@@ -119,5 +119,5 @@ if __name__ == "__main__":
     doodad_config = doodad_config._replace(
         output_directory=output_dir,
     )
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    # Path(output_dir).mkdir(parents=True, exist_ok=True)
     method_call(doodad_config, variant)

@@ -111,7 +111,9 @@ def chunker(sweeper, num_chunks=10, confirm=True):
 
 def run_sweep_doodad(
         target, params, run_mode, mounts, test_one=False,
-        docker_image='python:3', return_output=False, verbose=False,
+        docker_image='python:3',
+        is_docker_interactive=False,
+        return_output=False, verbose=False,
         postprocess_config_and_run_mode=lambda config, run_mode, idx: (config, run_mode),
         default_params=None
 ):
@@ -133,6 +135,7 @@ def run_sweep_doodad(
                                                 payload_script=command,
                                                 verbose=verbose,
                                                 docker_image=docker_image,
+                                                is_docker_interactive=is_docker_interactive,
                                                 use_nvidia_docker=run_mode.use_gpu,
                                                 mounts=mounts)
 

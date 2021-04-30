@@ -24,9 +24,13 @@ def sweep_function(
         use_gpu=False,
         num_gpu=1,
         name_runs_by_id=True,
-        add_time_to_run_id=True,
+        add_time_to_run_id='behind',
         start_run_id=0,
         docker_image=config.DEFAULT_DOCKER,
+        extra_launch_info=None,
+        code_dirs_to_mount=config.CODE_DIRS_TO_MOUNT,
+        non_code_dirs_to_mount=config.NON_CODE_DIRS_TO_MOUNT,
+        azure_region=config.DEFAULT_AZURE_REGION,
 ):
     """
     Usage:
@@ -78,11 +82,19 @@ def sweep_function(
     :param start_run_id:
     :return: How many
     """
+    if extra_launch_info is None:
+        extra_launch_info = {}
     if add_date_to_logname:
         datestamp = time.strftime("%y-%m-%d")
         log_path = '%s_%s' % (datestamp, log_path)
     target = osp.join(REPO_DIR, 'doodad/wrappers/easy_launch/run_experiment.py')
-    sweeper, output_mount = create_sweeper_and_output_mount(mode, log_path, docker_image)
+    sweeper, output_mount = create_sweeper_and_output_mount(
+        mode,
+        log_path,
+        docker_image,
+        code_dirs_to_mount=code_dirs_to_mount,
+        non_code_dirs_to_mount=non_code_dirs_to_mount,
+    )
     git_infos = metadata.generate_git_infos()
 
     doodad_config = metadata.DoodadConfig(
@@ -91,15 +103,19 @@ def sweep_function(
         git_infos=git_infos,
         script_name=' '.join(sys.argv),
         output_directory=output_mount.mount_point,
-        extra_launch_info={},
+        extra_launch_info=extra_launch_info,
     )
 
     def _create_final_log_path(base_path, run_id):
         if name_runs_by_id:
-            path_suffix = '/run{}'.format(start_run_id + run_id)
-            if add_time_to_run_id:
+            if add_time_to_run_id == 'in_front':
                 timestamp = time.strftime("%Hh-%Mm-%Ss")
-                path_suffix += '_{}'.format(timestamp)
+                path_suffix = '/{}_run{}'.format(timestamp, start_run_id + run_id)
+            elif add_time_to_run_id == 'behind':
+                timestamp = time.strftime("%Hh-%Mm-%Ss")
+                path_suffix = '/run{}_{}'.format(start_run_id + run_id, timestamp)
+            else:
+                path_suffix = '/run{}'.format(start_run_id + run_id)
         else:
             path_suffix = ''
         return base_path + path_suffix
@@ -152,7 +168,8 @@ def sweep_function(
                 gpu_model=config.DEFAULT_AZURE_GPU_MODEL,
                 use_gpu=use_gpu,
                 num_gpu=num_gpu,
-                region=config.DEFAULT_AZURE_REGION,
+                region=azure_region,
+                is_docker_interactive=False,
             )
         elif mode == 'gcp':
             sweeper.run_sweep_gcp(
@@ -164,6 +181,7 @@ def sweep_function(
                 postprocess_config_and_run_mode=postprocess_config_and_run_mode,
                 num_gpu=num_gpu,
                 use_gpu=use_gpu,
+                is_docker_interactive=False,
             )
         elif mode == 'local':
             sweeper.run_sweep_local(
@@ -171,6 +189,7 @@ def sweep_function(
                 params,
                 default_params=default_params,
                 postprocess_config_and_run_mode=postprocess_config_and_run_mode,
+                is_docker_interactive=True,
             )
         else:
             raise ValueError('Unknown mode: {}'.format(mode))
@@ -192,23 +211,35 @@ def _run_method_here_no_doodad(
         method_call(doodad_config, param)
 
 
-def create_mounts():
-    NON_CODE_MOUNTS = [
+def create_mounts(
+        code_dirs_to_mount=config.CODE_DIRS_TO_MOUNT,
+        non_code_dirs_to_mount=config.NON_CODE_DIRS_TO_MOUNT,
+):
+    non_code_mounts = [
         doodad.MountLocal(**non_code_mapping)
-        for non_code_mapping in config.NON_CODE_DIRS_TO_MOUNT
+        for non_code_mapping in non_code_dirs_to_mount
     ]
     if REPO_DIR not in config.CODE_DIRS_TO_MOUNT:
         config.CODE_DIRS_TO_MOUNT.append(REPO_DIR)
-    CODE_MOUNTS = [
+    code_mounts = [
         doodad.MountLocal(local_dir=code_dir, pythonpath=True)
-        for code_dir in config.CODE_DIRS_TO_MOUNT
+        for code_dir in code_dirs_to_mount
     ]
-    mounts = CODE_MOUNTS + NON_CODE_MOUNTS
+    mounts = code_mounts + non_code_mounts
     return mounts
 
 
-def create_sweeper_and_output_mount(mode, log_path, docker_image):
-    mounts = create_mounts()
+def create_sweeper_and_output_mount(
+        mode,
+        log_path,
+        docker_image,
+        code_dirs_to_mount=config.CODE_DIRS_TO_MOUNT,
+        non_code_dirs_to_mount=config.NON_CODE_DIRS_TO_MOUNT,
+):
+    mounts = create_mounts(
+        code_dirs_to_mount=code_dirs_to_mount,
+        non_code_dirs_to_mount=non_code_dirs_to_mount,
+    )
     az_mount = doodad.MountAzure(
         '',
         mount_point='/output',
