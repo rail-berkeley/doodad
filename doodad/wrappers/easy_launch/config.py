@@ -8,6 +8,7 @@ NON_CODE_DIRS_TO_MOUNT = [
         mount_point='/root/.mujoco',
     ),
 ]
+REMOTE_DIRS_TO_MOUNT = []
 LOCAL_LOG_DIR = '/home/user/logs/'
 
 # see https://docs.microsoft.com/en-us/azure/virtual-machines/ncv3-series

@@ -30,6 +30,7 @@ def sweep_function(
         extra_launch_info=None,
         code_dirs_to_mount=config.CODE_DIRS_TO_MOUNT,
         non_code_dirs_to_mount=config.NON_CODE_DIRS_TO_MOUNT,
+        remote_mount_configs=config.REMOTE_DIRS_TO_MOUNT,
         azure_region=config.DEFAULT_AZURE_REGION,
 ):
     """
@@ -94,6 +95,7 @@ def sweep_function(
         docker_image,
         code_dirs_to_mount=code_dirs_to_mount,
         non_code_dirs_to_mount=non_code_dirs_to_mount,
+        remote_mount_configs=remote_mount_configs,
         use_gpu=use_gpu,
     )
     git_infos = metadata.generate_git_infos()
@@ -215,10 +217,14 @@ def _run_method_here_no_doodad(
 def create_mounts(
         code_dirs_to_mount=config.CODE_DIRS_TO_MOUNT,
         non_code_dirs_to_mount=config.NON_CODE_DIRS_TO_MOUNT,
+        remote_mount_configs=config.REMOTE_DIRS_TO_MOUNT,
 ):
     non_code_mounts = [
         doodad.MountLocal(**non_code_mapping)
         for non_code_mapping in non_code_dirs_to_mount
+    ] + [
+        doodad.MountRemote(**non_code_mapping)
+        for non_code_mapping in remote_mount_configs
     ]
     if REPO_DIR not in config.CODE_DIRS_TO_MOUNT:
         config.CODE_DIRS_TO_MOUNT.append(REPO_DIR)
@@ -236,11 +242,13 @@ def create_sweeper_and_output_mount(
         docker_image,
         code_dirs_to_mount=config.CODE_DIRS_TO_MOUNT,
         non_code_dirs_to_mount=config.NON_CODE_DIRS_TO_MOUNT,
+        remote_mount_configs=config.REMOTE_DIRS_TO_MOUNT,
         use_gpu=False,
 ):
     mounts = create_mounts(
         code_dirs_to_mount=code_dirs_to_mount,
         non_code_dirs_to_mount=non_code_dirs_to_mount,
+        remote_mount_configs=remote_mount_configs,
     )
     az_mount = doodad.MountAzure(
         '',

@@ -263,3 +263,18 @@ class MountAzure(Mount):
     def dar_extract_command(self):
         return 'echo helloMountAzure'
 
+
+class MountRemote(Mount):
+    """This is for mounting writable directories that you know will already
+    exist on whatever platform you're using."""
+
+    def __init__(self, local_dir=None, output=True, **kwargs):
+        super(MountRemote, self).__init__(output=output, **kwargs)
+        self._name = local_dir
+        self.sync_dir = local_dir
+
+    def dar_build_archive(self, deps_dir):
+        return
+
+    def dar_extract_command(self):
+        return 'echo helloMountRemote'
