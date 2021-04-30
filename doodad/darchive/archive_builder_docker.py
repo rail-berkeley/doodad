@@ -35,6 +35,7 @@ def build_archive(archive_filename='runfile.dar',
                   is_docker_interactive=False,
                   payload_script='',
                   mounts=(),
+                  remote_mounts=(),
                   use_nvidia_docker=False,
                   verbose=False):
     """
@@ -46,6 +47,11 @@ def build_archive(archive_filename='runfile.dar',
         payload_script (str): A command or sequence of shell commands to be
             executed inside the container on when the script is run.
         mounts (tuple): A list of Mount objects
+        remote_mounts (tuple): A list of Mount objects for objects that will be
+            mounted on the running machine. In other words, use this to mount
+            directories that will _already_ be on the machine where you're
+            deploying this script. These mounts should not rely on any local
+            directory.
 
     Returns:
         str: Name of archive file.
@@ -63,7 +69,7 @@ def build_archive(archive_filename='runfile.dar',
 
         write_run_script(archive_dir, mounts,
             payload_script=payload_script, verbose=verbose)
-        write_docker_hook(archive_dir, docker_image, mounts, verbose=verbose,
+        write_docker_hook(archive_dir, docker_image, mounts, remote_mounts=remote_mounts, verbose=verbose,
                           use_nvidia_docker=use_nvidia_docker, interactive=is_docker_interactive)
         write_metadata(archive_dir)
 
@@ -79,7 +85,7 @@ def write_metadata(arch_dir):
         f.write('unix_timestamp=%d\n' % time.time())
         f.write('uuid=%s\n' % uuid.uuid4())
 
-def write_docker_hook(arch_dir, image_name, mounts, verbose=False, use_nvidia_docker=False, interactive=False):
+def write_docker_hook(arch_dir, image_name, mounts, remote_mounts, verbose=False, use_nvidia_docker=False, interactive=False):
     docker_hook_file = os.path.join(arch_dir, 'docker.sh')
     builder = cmd_builder.CommandBuilder()
     builder.append('#!/bin/bash')
@@ -88,6 +94,8 @@ def write_docker_hook(arch_dir, image_name, mounts, verbose=False, use_nvidia_do
     #    builder.echo('$@')
     mnt_cmd = ''.join([' -v %s:%s' % (mnt.sync_dir, mnt.mount_point)
         for mnt in mounts if mnt.writeable])
+    mnt_cmd += ''.join([' -v %s:%s' % (mnt.sync_dir, mnt.mount_point)
+                       for mnt in remote_mounts])
     # mount the script into the docker image
     mnt_cmd += ' -v $(pwd):/'+DAR_PAYLOAD_MOUNT
     docker_cmd = ('docker run {gpu_opt} {mount_cmds} {interactive_opt} {img} /bin/bash -c "cd /{dar_payload};./run.sh $*"'.format(

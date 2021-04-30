@@ -31,6 +31,7 @@ def sweep_function(
         code_dirs_to_mount=config.CODE_DIRS_TO_MOUNT,
         non_code_dirs_to_mount=config.NON_CODE_DIRS_TO_MOUNT,
         azure_region=config.DEFAULT_AZURE_REGION,
+        remote_mount_configs=(),
 ):
     """
     Usage:
@@ -95,6 +96,7 @@ def sweep_function(
         code_dirs_to_mount=code_dirs_to_mount,
         non_code_dirs_to_mount=non_code_dirs_to_mount,
         use_gpu=use_gpu,
+        remote_mount_configs=remote_mount_configs,
     )
     git_infos = metadata.generate_git_infos()
 
@@ -236,18 +238,23 @@ def create_sweeper_and_output_mount(
         docker_image,
         code_dirs_to_mount=config.CODE_DIRS_TO_MOUNT,
         non_code_dirs_to_mount=config.NON_CODE_DIRS_TO_MOUNT,
+        remote_mount_configs=(),
         use_gpu=False,
 ):
     mounts = create_mounts(
         code_dirs_to_mount=code_dirs_to_mount,
         non_code_dirs_to_mount=non_code_dirs_to_mount,
     )
+    remote_mounts = [
+        doodad.MountLocal(**conf) for conf in remote_mount_configs
+    ]
     az_mount = doodad.MountAzure(
         '',
         mount_point='/output',
     )
     sweeper = DoodadSweeper(
         mounts=mounts,
+        remote_mounts=remote_mounts,
         docker_img=docker_image,
         azure_subscription_id=config.AZ_SUB_ID,
         azure_storage_connection_str=config.AZ_CONN_STR,

@@ -11,6 +11,7 @@ from doodad.wrappers.sweeper import hyper_sweep
 class DoodadSweeper(object):
     def __init__(self,
             mounts=None,
+            remote_mounts=None,
             docker_img='python:3',
             docker_output_dir='/data',
             local_output_dir='/data/docker',
@@ -30,6 +31,8 @@ class DoodadSweeper(object):
     ):
         if mounts is None:
             mounts = []
+        if remote_mounts is None:
+            remote_mounts = []
 
         self.image = docker_img
         #self.python_cmd = python_cmd
@@ -43,6 +46,7 @@ class DoodadSweeper(object):
         #mounts.append(mount.MountLocal(local_dir=REPO_DIR, pythonpath=True))
         self.docker_output_dir = docker_output_dir
         self.mounts = mounts
+        self.remote_mounts = remote_mounts
         self.mount_out_local = mount.MountLocal(local_dir=local_output_dir, mount_point=docker_output_dir, output=True)
 
         self.gcp_bucket_name = gcp_bucket_name
@@ -67,6 +71,7 @@ class DoodadSweeper(object):
         return hyper_sweep.run_sweep_doodad(target, params, run_mode=self.mode_local,
                          docker_image=self.image,
                          mounts=self.mounts+[self.mount_out_local]+extra_mounts,
+                         remote_mounts=self.remote_mounts,
                          test_one=True, **kwargs)
 
     def run_sweep_local(self, target, params, extra_mounts=None, num_chunks=-1, **kwargs):
@@ -85,6 +90,7 @@ class DoodadSweeper(object):
             return hyper_sweep.run_sweep_doodad(target, params, run_mode=self.mode_local,
                          docker_image=self.image,
                          mounts=self.mounts+[self.mount_out_local]+extra_mounts,
+                         remote_mounts=self.remote_mounts,
                          **kwargs)
 
     def run_sweep_gcp(self, target, params,
@@ -125,6 +131,7 @@ class DoodadSweeper(object):
                     run_mode=mode_ec2,
                     docker_image=self.image,
                     mounts=self.mounts+[self.mount_out_gcp]+extra_mounts,
+                    remote_mounts=self.remote_mounts,
                     **kwargs)
 
     def run_sweep_azure(self, target, params,
@@ -176,5 +183,6 @@ class DoodadSweeper(object):
                                          run_mode=run_mode,
                                          docker_image=self.image,
                                          mounts=self.mounts+[self.mount_out_azure]+extra_mounts,
+                                         remote_mounts=self.remote_mounts,
                                          **kwargs)
 
