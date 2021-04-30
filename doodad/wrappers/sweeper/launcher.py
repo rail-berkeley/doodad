@@ -24,13 +24,20 @@ class DoodadSweeper(object):
             azure_tenant_id=None,
             azure_storage_container=None,
             mount_out_azure=None,
+            local_shell_interpreter='sh',
+            local_async_run=False,
+            local_use_gpu=False
     ):
         if mounts is None:
             mounts = []
 
         self.image = docker_img
         #self.python_cmd = python_cmd
-        self.mode_local = doodad.mode.LocalMode()
+        self.mode_local = doodad.mode.LocalMode(
+            shell_interpreter=local_shell_interpreter,
+            async_run=local_async_run,
+            use_gpu=local_use_gpu,
+        )
 
         # always include doodad
         #mounts.append(mount.MountLocal(local_dir=REPO_DIR, pythonpath=True))
