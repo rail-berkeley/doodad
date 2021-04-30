@@ -684,15 +684,15 @@ class AzureMode(LaunchMode):
         with open(azure_util.AZURE_SHUTDOWN_SCRIPT_PATH) as f:
             stop_script = f.read()
 
+        regions_to_try = [self.region]  # always prioritize selected self.region
         if not self._retry_regions:
-            # By default always retry us regions
-            regions_to_try = [self.region] + self.US_REGIONS
+            regions_to_try += self.US_REGIONS  # always retry us regions
             if self.preemptible:
                 # For pre-emptible, try all regions
-                regions_to_try += self.ABROAD_REGIONS  # prioritize selected self.region
-            regions_to_try = _remove_duplicates(regions_to_try)
+                regions_to_try += self.ABROAD_REGIONS
         else:
-            regions_to_try = self._retry_regions
+            regions_to_try += self._retry_regions
+        regions_to_try = _remove_duplicates(regions_to_try)
 
         first_try = True
         for region in regions_to_try:
