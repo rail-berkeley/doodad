@@ -17,8 +17,8 @@ query_metadata() {
     remote_script_args='DOODAD_REMOTE_SCRIPT_ARGS'
     shell_interpreter=DOODAD_SHELL_INTERPRETER
     terminate_on_end=DOODAD_TERMINATE_ON_END
-    use_gpu=DOODAD_USE_GPU
     overwrite_logs=DOODAD_OVERWRITE_LOGS
+    install_nvidia_extension=DOODAD_INSTALL_NVIDIA_EXTENSION
 
     # Install docker following instructions from
     # https://docs.docker.com/engine/install/ubuntu/
@@ -93,7 +93,7 @@ query_metadata() {
     # https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli?view=azure-cli-latest#sign-in-with-a-managed-identity
     az login --identity
 
-    if [ "$use_gpu" = "true" ]; then
+    if [ "$install_nvidia_extension" = "true" ]; then
         sudo apt install -y aptdaemon
         echo 'Installing nvidia extension'
           az vm extension set \

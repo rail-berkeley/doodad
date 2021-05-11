@@ -628,6 +628,7 @@ class AzureMode(LaunchMode):
         self.spot_max_price = spot_price
         self._retry_regions = retry_regions
         self.overwrite_logs = overwrite_logs
+        self.gpu_model = gpu_model
         if tags is None:
             from os import environ, getcwd
             getUser = lambda: environ["USERNAME"] if "C:" in getcwd() else environ[
@@ -648,7 +649,7 @@ class AzureMode(LaunchMode):
         self.connection_info = dict([k.split('=', 1) for k in self.connection_str.split(';')])
 
         if self.use_gpu:
-            self.instance_type = azure_util.get_gpu_type_instance(gpu_model, num_gpu, num_vcpu, promo_price)
+            self.instance_type = azure_util.get_gpu_type_instance(self.gpu_model, num_gpu, num_vcpu, promo_price)
 
     @property
     def log_path(self):
@@ -695,6 +696,8 @@ class AzureMode(LaunchMode):
         else:
             regions_to_try += self._retry_regions
         regions_to_try = _remove_duplicates(regions_to_try)
+        use_data_science_image = self.use_gpu and self.gpu_model == 'nvidia-tesla-v100'
+        install_nvidia_extension = self.use_gpu and not use_data_science_image
 
         first_try = True
         for region in regions_to_try:
@@ -707,11 +710,12 @@ class AzureMode(LaunchMode):
                 'remote_script_args': script_args,
                 'container_name': self.azure_container,
                 'terminate': json.dumps(self.terminate_on_end),
-                'use_gpu': json.dumps(self.use_gpu),
                 'startup_script': start_script,
                 'shutdown_script': stop_script,
                 'region': region,
                 'overwrite_logs': json.dumps(self.overwrite_logs),
+                'use_data_science_image': use_data_science_image,  # processed in create_instance, json.dumps not needed
+                'install_nvidia_extension': json.dumps(install_nvidia_extension)
             }
             success, instance_info = self.create_instance(metadata, verbose=verbose)
             first_try = False
@@ -840,8 +844,8 @@ class AzureMode(LaunchMode):
                 ('DOODAD_REMOTE_SCRIPT_ARGS', metadata['remote_script_args']),
                 ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
                 ('DOODAD_TERMINATE_ON_END', metadata['terminate']),
-                ('DOODAD_USE_GPU', metadata['use_gpu']),
                 ('DOODAD_OVERWRITE_LOGS', metadata['overwrite_logs']),
+                ('DOODAD_INSTALL_NVIDIA_EXTENSION', metadata['install_nvidia_extension'])
             ]:
                 startup_script_str = startup_script_str.replace(old, new)
             custom_data = b64e(startup_script_str)
@@ -882,6 +886,14 @@ class AzureMode(LaunchMode):
                 'tags': self.tags,
                 'identity': params_identity,
             }
+            if metadata['use_data_science_image']:
+                vm_parameters['storage_profile']['image_reference'] = {
+                    "offer": "ubuntu-1804",
+                    "publisher": "microsoft-dsvm",
+                    "sku": "1804",
+                    "urn": "microsoft-dsvm:ubuntu-1804:1804:latest",
+                    "version": "latest"
+                }
             if self.preemptible:
                 spot_args = {
                     "priority": "Spot",
