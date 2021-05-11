@@ -58,8 +58,16 @@ def encode_args(call_args, cloudpickle=False):
 
 
 if __name__ == "__main__":
+    """
+    If you have function calls that need to happen in the main function, put
+    them here. For example:
+
     import matplotlib
     matplotlib.use('agg')
+
+    from torch.multiprocessing import set_start_method
+    set_start_method('spawn')
+    """
 
     args_dict = get_args()
     method_call = args_dict['method_call']
