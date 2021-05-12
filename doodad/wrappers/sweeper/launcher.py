@@ -137,6 +137,7 @@ class DoodadSweeper(object):
                         use_gpu=False,
                         num_gpu=1,
                         gpu_model='nvidia-tesla-k80',
+                        overwrite_logs=False,
                         **kwargs):
         """
         Run a grid search on GCP
@@ -163,6 +164,7 @@ class DoodadSweeper(object):
             use_gpu=use_gpu,
             gpu_model=gpu_model,
             num_gpu=num_gpu,
+            overwrite_logs=overwrite_logs,
         )
         if num_chunks > 0:
             hyper_sweep.run_sweep_doodad_chunked(target, params,
