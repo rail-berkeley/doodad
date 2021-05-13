@@ -18,6 +18,7 @@ query_metadata() {
     shell_interpreter=DOODAD_SHELL_INTERPRETER
     terminate_on_end=DOODAD_TERMINATE_ON_END
     use_gpu=DOODAD_USE_GPU
+    overwrite_logs=DOODAD_OVERWRITE_LOGS
 
     # Install docker following instructions from
     # https://docs.docker.com/engine/install/ubuntu/
@@ -72,11 +73,14 @@ query_metadata() {
 
     if [ -d /doodad_tmp/$doodad_log_path ]
     then
+      if [ "$overwrite_logs" = "false" ]
+      then
         timestamp=$(date +%d-%m-%Y_%H-%M-%S)
         randomid=$(uuidgen | cut -d '-' -f1)
         doodad_log_path="${doodad_log_path}_copy_${timestamp}_${randomid}"
         echo "directory exists. creating new log path ${doodad_log_path}"
         mkdir -p /doodad_tmp/$doodad_log_path
+      fi
     else
         mkdir -p /doodad_tmp/$doodad_log_path
     fi

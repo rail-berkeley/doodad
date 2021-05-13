@@ -10,6 +10,7 @@ NON_CODE_DIRS_TO_MOUNT = [
 ]
 REMOTE_DIRS_TO_MOUNT = []
 LOCAL_LOG_DIR = '/home/user/logs/'
+OVERWRITE_LOGS = False
 
 # see https://docs.microsoft.com/en-us/azure/virtual-machines/ncv3-series
 DEFAULT_AZURE_GPU_MODEL = 'nvidia-tesla-v100'

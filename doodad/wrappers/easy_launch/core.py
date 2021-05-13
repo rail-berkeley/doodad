@@ -32,6 +32,7 @@ def sweep_function(
         non_code_dirs_to_mount=config.NON_CODE_DIRS_TO_MOUNT,
         remote_mount_configs=config.REMOTE_DIRS_TO_MOUNT,
         azure_region=config.DEFAULT_AZURE_REGION,
+        overwrite_logs=config.OVERWRITE_LOGS
 ):
     """
     Usage:
@@ -173,6 +174,7 @@ def sweep_function(
                 num_gpu=num_gpu,
                 region=azure_region,
                 is_docker_interactive=False,
+                overwrite_logs=overwrite_logs
             )
         elif mode == 'gcp':
             sweeper.run_sweep_gcp(

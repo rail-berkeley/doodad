@@ -609,6 +609,7 @@ class AzureMode(LaunchMode):
                  spot_price=-1,
                  tags=None,
                  retry_regions=None,
+                 overwrite_logs=False,
                  **kwargs):
         super(AzureMode, self).__init__(**kwargs)
         self.subscription_id = azure_subscription_id
@@ -626,6 +627,7 @@ class AzureMode(LaunchMode):
         self.instance_type = instance_type
         self.spot_max_price = spot_price
         self._retry_regions = retry_regions
+        self.overwrite_logs = overwrite_logs
         if tags is None:
             from os import environ, getcwd
             getUser = lambda: environ["USERNAME"] if "C:" in getcwd() else environ[
@@ -708,7 +710,8 @@ class AzureMode(LaunchMode):
                 'use_gpu': json.dumps(self.use_gpu),
                 'startup_script': start_script,
                 'shutdown_script': stop_script,
-                'region': region
+                'region': region,
+                'overwrite_logs': json.dumps(self.overwrite_logs),
             }
             success, instance_info = self.create_instance(metadata, verbose=verbose)
             first_try = False
@@ -837,7 +840,8 @@ class AzureMode(LaunchMode):
                 ('DOODAD_REMOTE_SCRIPT_ARGS', metadata['remote_script_args']),
                 ('DOODAD_SHELL_INTERPRETER', metadata['shell_interpreter']),
                 ('DOODAD_TERMINATE_ON_END', metadata['terminate']),
-                ('DOODAD_USE_GPU', metadata['use_gpu'])
+                ('DOODAD_USE_GPU', metadata['use_gpu']),
+                ('DOODAD_OVERWRITE_LOGS', metadata['overwrite_logs']),
             ]:
                 startup_script_str = startup_script_str.replace(old, new)
             custom_data = b64e(startup_script_str)
