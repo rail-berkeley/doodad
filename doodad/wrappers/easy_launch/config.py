@@ -13,7 +13,7 @@ LOCAL_LOG_DIR = '/home/user/logs/'
 OVERWRITE_LOGS = False
 
 # see https://docs.microsoft.com/en-us/azure/virtual-machines/ncv3-series
-DEFAULT_AZURE_GPU_MODEL = 'nvidia-tesla-v100'
+DEFAULT_AZURE_GPU_MODEL = 'nvidia-tesla-t4'
 DEFAULT_AZURE_INSTANCE_TYPE = 'Standard_DS1_v2'
 DEFAULT_AZURE_REGION = 'westus'
 
