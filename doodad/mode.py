@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import uuid
 import six
 import base64
@@ -8,9 +9,10 @@ import shlex
 
 from doodad.utils import shell
 from doodad.utils import safe_import
-from doodad import mount
 from doodad.apis.ec2.autoconfig import Autoconfig
 from doodad.credentials.ec2 import AWSCredentials
+
+from msrestazure.azure_exceptions import CloudError as AzureCloudError
 
 googleapiclient = safe_import.try_import('googleapiclient')
 googleapiclient.discovery = safe_import.try_import('googleapiclient.discovery')
@@ -921,16 +923,24 @@ class AzureMode(LaunchMode):
             assert len(roles) == 1
             contributor_role = roles[0]
 
-            # Add RG scope to the MSI tokenddd
-            for msi_identity in [vm_result.identity.principal_id]:
-                authorization_client.role_assignments.create(
-                    resource_group.id,
-                    uuid.uuid4(),  # Role assignment random name
-                    {
-                        'role_definition_id': contributor_role.id,
-                        'principal_id': msi_identity
-                    }
-                )
+            # Add RG scope to the MSI tokenid
+            tokens_left = [vm_result.identity.principal_id]
+            while tokens_left:
+                try:
+                    for i, msi_identity in enumerate(tokens_left):
+                        authorization_client.role_assignments.create(
+                            resource_group.id,
+                            uuid.uuid4(),  # Role assignment random name
+                            {
+                                'role_definition_id': contributor_role.id,
+                                'principal_id': msi_identity
+                            }
+                        )
+                        del tokens_left[i]
+                except AzureCloudError as e:
+                    if verbose:
+                        print('Waiting for the principal ID {}.'.format(msi_identity))
+                    time.sleep(5)
         except (Exception, KeyboardInterrupt) as e:
             if 'resource_group' in locals():
                 if verbose:
@@ -938,7 +948,6 @@ class AzureMode(LaunchMode):
                 resource_group_client.resource_groups.delete(
                     azure_resource_group
                 )
-            from msrestazure.azure_exceptions import CloudError as AzureCloudError
             if isinstance(e, AzureCloudError):
                 print("Error when creating VM. Error message:")
                 print(e.message + '\n')
