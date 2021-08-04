@@ -698,7 +698,8 @@ class AzureMode(LaunchMode):
         else:
             regions_to_try += self._retry_regions
         regions_to_try = _remove_duplicates(regions_to_try)
-        use_data_science_image = self.use_gpu and (self.gpu_model == 'nvidia-tesla-v100' or self.gpu_model == 'nvidia-tesla-t4')
+        # use_data_science_image = self.use_gpu and (self.gpu_model == 'nvidia-tesla-v100' or self.gpu_model == 'nvidia-tesla-t4')
+        use_data_science_image = False  # keep manual installation of image until we switch to a more affordable disk type
         install_nvidia_extension = self.use_gpu and not use_data_science_image
 
         first_try = True
