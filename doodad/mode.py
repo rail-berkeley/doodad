@@ -752,10 +752,13 @@ class AzureMode(LaunchMode):
         instance_type_str = 'a spot instance' if self.preemptible else 'an instance'
         print('Creating {} of type {} in {}'.format(instance_type_str, self.instance_type, region))
 
-        credentials = ServicePrincipalCredentials(
+        # https://stackoverflow.com/questions/64063850/azure-python-sdk-serviceprincipalcredentials-object-has-no-attribute-get-tok
+        from azure.identity import ClientSecretCredential
+        # credentials = ServicePrincipalCredentials(
+        credentials = ClientSecretCredential(
             client_id=self.azure_client_id,
-            secret=self.azure_authentication_key,
-            tenant=self.azure_tenant_id,
+            client_secret=self.azure_authentication_key,
+            tenant_id=self.azure_tenant_id,
         )
         resource_group_client = ResourceManagementClient(
             credentials,
@@ -790,7 +793,7 @@ class AzureMode(LaunchMode):
             'public_ip_allocation_method': 'Dynamic'
         }
         try:
-            poller = network_client.public_ip_addresses.create_or_update(
+            poller = network_client.public_ip_addresses.begin_create_or_update(
                 azure_resource_group,
                 'myIPAddress',
                 public_ip_addess_params
@@ -803,7 +806,7 @@ class AzureMode(LaunchMode):
                     'address_prefixes': ['10.0.0.0/16']
                 }
             }
-            network_client.virtual_networks.create_or_update(
+            network_client.virtual_networks.begin_create_or_update(
                 azure_resource_group,
                 'myVNet',
                 vnet_params
@@ -811,7 +814,7 @@ class AzureMode(LaunchMode):
             subnet_params = {
                 'address_prefix': '10.0.0.0/24'
             }
-            poller = network_client.subnets.create_or_update(
+            poller = network_client.subnets.begin_create_or_update(
                 azure_resource_group,
                 'myVNet',
                 'mySubnet',
@@ -828,7 +831,7 @@ class AzureMode(LaunchMode):
                     }
                 }]
             }
-            poller = network_client.network_interfaces.create_or_update(
+            poller = network_client.network_interfaces.begin_create_or_update(
                 azure_resource_group,
                 'myNic',
                 nic_params
@@ -906,7 +909,7 @@ class AzureMode(LaunchMode):
                     }
                 }
                 vm_parameters.update(spot_args)
-            vm_poller = compute_client.virtual_machines.create_or_update(
+            vm_poller = compute_client.virtual_machines.begin_create_or_update(
                 resource_group_name=azure_resource_group,
                 vm_name=vm_name,
                 parameters=vm_parameters,
@@ -933,8 +936,10 @@ class AzureMode(LaunchMode):
                             resource_group.id,
                             uuid.uuid4(),  # Role assignment random name
                             {
-                                'role_definition_id': contributor_role.id,
-                                'principal_id': msi_identity
+                                'properties': {
+                                    'role_definition_id': contributor_role.id,
+                                    'principal_id': msi_identity,
+                                },
                             }
                         )
                         del tokens_left[i]

@@ -44,3 +44,19 @@ launch_api.run_python('path/to/my/python/script.py')
 ## Misc
 
 EC2 code is based on [rllab](https://github.com/rll/rllab/)'s code.
+
+## Azure Note
+Install these to get azure to work:
+```
+pip install -y \
+    azure-common \
+    azure-identity \
+    azure-keyvault-secrets \
+    azure-mgmt-authorization \
+    azure-mgmt-compute \
+    azure-mgmt-network \
+    azure-mgmt-resource \
+    azure-mgmt-storage \
+    azure-storage-blob \
+    msrestazure
+```

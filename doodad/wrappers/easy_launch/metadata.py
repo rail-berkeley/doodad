@@ -64,7 +64,10 @@ def generate_git_infos():
                     branch_name='(not a git repo)',
                 ))
                 pass
-    except (ImportError, UnboundLocalError, NameError) as e:
+    except (UnboundLocalError, NameError) as e:
+        print("Error with GitPython: {}".format(e))
+        git_infos = []
+    except ImportError as e:
         print("Install GitPython to automatically save git information.")
         git_infos = []
     return git_infos
