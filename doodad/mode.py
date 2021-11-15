@@ -943,7 +943,7 @@ class AzureMode(LaunchMode):
                             }
                         )
                         del tokens_left[i]
-                except azure_exceptions.AzureCloudError as e:
+                except azure_exceptions.CloudError as e:
                     if verbose:
                         print('Waiting for the principal ID {}.'.format(msi_identity))
                     time.sleep(5)
@@ -954,7 +954,7 @@ class AzureMode(LaunchMode):
                 resource_group_client.resource_groups.delete(
                     azure_resource_group
                 )
-            if isinstance(e, azure_exceptions.AzureCloudError):
+            if isinstance(e, azure_exceptions.CloudError):
                 print("Error when creating VM. Error message:")
                 print(e.message + '\n')
                 return False, e
