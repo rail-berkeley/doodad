@@ -12,8 +12,8 @@ from doodad.utils import safe_import
 from doodad.apis.ec2.autoconfig import Autoconfig
 from doodad.credentials.ec2 import AWSCredentials
 
-from msrestazure.azure_exceptions import CloudError as AzureCloudError
 
+azure_exceptions = safe_import.try_import('msrestazure.azure_exceptions')
 googleapiclient = safe_import.try_import('googleapiclient')
 googleapiclient.discovery = safe_import.try_import('googleapiclient.discovery')
 boto3 = safe_import.try_import('boto3')
@@ -943,7 +943,7 @@ class AzureMode(LaunchMode):
                             }
                         )
                         del tokens_left[i]
-                except AzureCloudError as e:
+                except azure_exceptions.AzureCloudError as e:
                     if verbose:
                         print('Waiting for the principal ID {}.'.format(msi_identity))
                     time.sleep(5)
@@ -954,7 +954,7 @@ class AzureMode(LaunchMode):
                 resource_group_client.resource_groups.delete(
                     azure_resource_group
                 )
-            if isinstance(e, AzureCloudError):
+            if isinstance(e, azure_exceptions.AzureCloudError):
                 print("Error when creating VM. Error message:")
                 print(e.message + '\n')
                 return False, e
